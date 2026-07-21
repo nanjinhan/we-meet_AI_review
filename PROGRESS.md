@@ -4,7 +4,7 @@
 > **누가(나 / 다른 사람 / Claude Code) 이어받아도 이 파일만 보면 다음 작업을 시작할 수 있어야 한다.**
 > GitHub에 올릴 때마다 이 파일을 최신 상태로 갱신한다.
 >
-> 최종 갱신: **2026-07-21** · 진행: **T-10까지 완료 (백엔드 Phase 0~3), 다음은 T-11**
+> 최종 갱신: **2026-07-21** · 진행: **T-11까지 완료 (백엔드 Phase 0~4 일부), 다음은 T-12**
 
 ---
 
@@ -32,9 +32,9 @@
 - [x] **T-07** LLM 게이트웨이 (Gemini, structured outputs, 프롬프트 파일)
 - [x] **T-08** 분석 파이프라인 + 주간 집계 (analyze/stats/embed)
 - [x] **T-09** 답글 생성 + 승인 플로우 (반자동)
-- [x] **T-10** 카카오 + 웹푸시 + 디스패처 + 다이제스트  ← **여기까지 완료**
-- [ ] **T-11** 대시보드 API + 점수 산식  ← **다음 할 것**
-- [ ] **T-12** 주간 리포트 생성기
+- [x] **T-10** 카카오 + 웹푸시 + 디스패처 + 다이제스트
+- [x] **T-11** 대시보드 API + 점수 산식 + 리뷰 인박스(커서 페이지네이션)  ← **여기까지 완료**
+- [ ] **T-12** 주간 리포트 생성기  ← **다음 할 것**
 - [ ] **T-13** 경쟁매장 비교
 - [ ] **T-14** AI 비서 하이브리드 백엔드
 - [ ] **T-15** 데모 시드 + 운영 마감(배포 compose, CI 등)
@@ -42,14 +42,16 @@
 ### 프론트 (아직 스캐폴딩만, T-F1부터 미착수)
 - [ ] T-F1 인증+API클라이언트 / T-F2 온보딩 / T-F3 인박스+답글 / T-F4 대시보드 / T-F5 리포트·비교 / T-F6 PWA+웹푸시 / T-F7 비서채팅
 
-## 4. 다음 작업 (T-11) — 시작점
+## 4. 다음 작업 (T-12) — 시작점
 
-`docs/TASKS.md`의 **T-11** 참고. 요약:
-- `backend/app/services/score.py`: 종합 평판 점수 = `100 × (0.5·긍정비율 + 0.3·평점정규화 + 0.2·답변율)` (가중치는 상수 분리)
-- `GET /api/v1/stores/{id}/dashboard?range=4w`: `weekly_aspect_stats`만 읽어 점수·추세·aspect 반환 (프론트 집계 금지)
-- 리뷰 인박스 `GET /api/v1/stores/{id}/reviews`: 필터(sentiment/urgent/answered) + **커서 페이지네이션**(`?cursor=<id>&limit=20`, id desc)
-- 완료 조건: 점수 산식 단위 테스트, 커서 경계(마지막 페이지) 테스트
-- 라우터는 `main.py`에 `/api/v1` prefix로 등록. 소유권은 `deps.get_owned_store` 사용.
+`docs/TASKS.md`의 **T-12** 참고. 요약:
+- `backend/app/pipeline/report_gen.py`: `generate_weekly_report(db, store_id, week_start)` — 4주치 통계 + 급증 키워드 + 경쟁 통계를 프롬프트에 넣어 `generate("report_v1", ..., WeeklyReportOut)`.
+- `backend/prompts/report_v1.md`: 진단(위험/주의/강점/기회, **근거 수치 필수**) + 처방. 가드레일: 집계값만 인용.
+- **수치 검증(핵심)**: `diagnosis.evidence` 안의 숫자가 프롬프트에 넣은 집계값 집합에 없으면 **1회 재생성**, 재실패 시 해당 항목 제거 → `reports` insert.
+- reports 라우터: `GET /stores/{id}/reports/latest`, `GET /stores/{id}/reports/{report_id}`.
+- 워커 잡 연결: 월 07:00 `generate_weekly_reports`(worker.py 스텁 존재) → report_gen 실제 호출 + `dispatch.send_report_ready`.
+- 완료 조건: "프롬프트에 없는 숫자" 케이스에서 재생성 분기 타는 테스트(LLM mock 2회 응답).
+- 참고: `WeeklyReportOut`/`Diagnosis`/`Prescription` 스키마는 `llm/schemas.py`에 이미 있음. LLM 호출은 `generate()`(mock) 사용.
 
 ## 5. 지금까지의 주요 결정/이탈 (이어받는 사람 필독)
 
@@ -60,6 +62,7 @@
 5. **경쟁매장은 자체 `stores` 행 필요**: `weekly_aspect_stats` PK가 (store_id,week,aspect)라 통계 분리하려면 경쟁매장도 stores 행을 가져야 함. T-13에서 강제/검증 예정.
 6. **크롤러 미해결(사람 필요)**: `selectors.yaml`의 실제 네이버 CSS 셀렉터값 미기입(구조만), 방문일 연도 파싱·`wait_for_selector` 보강은 셀렉터 확정 후.
 7. **마이그레이션 3개**: 001(init) / 002(crawl_jobs.collected) / 003(review_analysis.alerted_at).
+8. **점수 산식 상수**: `services/score.py`에 가중치(0.5/0.3/0.2) 분리. 대시보드는 `services/dashboard.py`가 weekly_aspect_stats + 답변율/키워드로 조립(`today` 주입 가능).
 
 ## 6. 로컬 실행 방법
 
@@ -87,7 +90,7 @@ cd ../frontend && npm install && npm run dev
 
 ## 7. 테스트/품질 현황
 
-- **pytest 64개 전부 통과**, `ruff check` 통과 (모든 태스크 공통 완료조건).
+- **pytest 70개 전부 통과**, `ruff check` 통과 (모든 태스크 공통 완료조건).
 - DB 테스트는 로컬 docker postgres 사용(트랜잭션 롤백 격리). LLM/외부발송은 mock.
 
 ## 8. ⚠️ 보안

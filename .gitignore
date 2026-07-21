@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# secrets — 절대 커밋 금지 (CLAUDE.md 규칙 10)
+.env
+backend/.env
+
+# 크롤 스냅샷
+/data/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,25 @@
+# 로컬 개발용 DB. pgvector 포함 이미지 사용.
+# 마이그레이션은 initdb 훅으로 자동 적용된다(빈 볼륨 최초 기동 시 알파벳 순서로 실행):
+#   000_dev_auth_stub.sql → 001_init.sql
+# 접속: postgresql+asyncpg://app:app@localhost:5432/reviewdb
+services:
+  db:
+    image: pgvector/pgvector:pg15
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: reviewdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - dev_pgdata:/var/lib/postgresql/data
+      # initdb 훅: 빈 데이터 볼륨으로 첫 기동할 때만 실행된다.
+      - ./backend/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d reviewdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  dev_pgdata:

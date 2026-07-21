@@ -1,0 +1,56 @@
+[project]
+name = "review-diagnosis-backend"
+version = "0.1.0"
+description = "리뷰 진단 AI SaaS — FastAPI + 워커"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "pydantic-settings",
+  "sqlalchemy[asyncio]>=2.0",
+  "asyncpg",
+  "pgvector",
+  "google-genai",
+  "PyJWT",
+  "httpx",
+  "apscheduler",
+  "playwright",
+  "beautifulsoup4",
+  "pywebpush",
+  "FlagEmbedding",
+  "python-multipart",
+  "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-asyncio",
+  "ruff",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI 의존성 주입 관용구(Depends/Header/File 기본값 호출)는 B008 예외
+extend-immutable-calls = [
+  "fastapi.Depends", "fastapi.Header", "fastapi.File",
+  "fastapi.Query", "fastapi.Body", "fastapi.Path",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+testpaths = ["tests"]

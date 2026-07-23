@@ -4,7 +4,7 @@
 
 > 3인 학생팀 · 12주 MVP · 요구사항 원천은 [`docs/TECH_SPEC.md`](docs/TECH_SPEC.md)
 
-**진행 상황: 백엔드 T-01~T-10 완료 (Phase 0~3) · pytest 64개 통과** — 상세·다음 작업은 👉 [`PROGRESS.md`](PROGRESS.md)
+**진행 상황: 백엔드 T-01~T-14 + 프론트 T-F1 완료 · pytest 84개 통과** — 상세·다음 작업은 👉 [`이어서진행.md`](이어서진행.md)
 
 ---
 
@@ -54,7 +54,7 @@ backend/
   tests/          # pytest (docker postgres 대상, 외부 호출은 mock)
 frontend/         # Next.js 15 PWA (예정: T-F1~F7)
 docs/             # TECH_SPEC / ARCHITECTURE / BACKEND / FRONTEND / TASKS / schema.sql
-PROGRESS.md       # 진행 인수인계 문서 (여기부터 이어서)
+이어서진행.md      # 진행 인수인계 문서 (여기부터 이어서 — 새 세션은 이거부터 읽기)
 CLAUDE.md         # 프로젝트 규약 (10대 규칙)
 ```
 
@@ -62,4 +62,4 @@ CLAUDE.md         # 프로젝트 규약 (10대 규칙)
 
 - 작업 단위는 [`docs/TASKS.md`](docs/TASKS.md)의 T-01~T-15 / T-F1~T-F7.
 - 모든 태스크 공통 완료 조건: `ruff check` 통과 · 관련 pytest 통과 · `CLAUDE.md` 규칙 준수.
-- 이어서 작업하려면 [`PROGRESS.md`](PROGRESS.md)의 "다음 작업" 절부터.
+- 이어서 작업하려면 [`이어서진행.md`](이어서진행.md)의 "다음 작업" 절부터.

@@ -1,8 +1,6 @@
+import { redirect } from "next/navigation";
+
 export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
-      <h1 className="text-3xl font-bold">리뷰 진단 AI</h1>
-      <p className="text-gray-500">스캐폴딩 완료 — 인증/온보딩은 T-F1 부터.</p>
-    </main>
-  );
+  // 진입점 → 대시보드. 미로그인이면 middleware 가 /login 으로 보낸다.
+  redirect("/dashboard");
 }

@@ -241,9 +241,31 @@ async def send_hourly_digest(
     return count
 
 
-async def generate_weekly_reports() -> None:
-    """전 매장 주간 리포트 생성 — T-12 에서 pipeline/report_gen 연결."""
-    logger.debug("weekly report 잡: 아직 미연결 (T-12)")
+async def generate_weekly_reports(
+    *, session_factory: async_sessionmaker[AsyncSession] = SessionLocal
+) -> int:
+    """전 매장의 직전 완료 주 리포트 생성 + 완료 알림. 생성한 매장 수 반환."""
+    from datetime import timedelta
+
+    from app.models import Store
+    from app.notify.dispatch import send_report_ready
+    from app.pipeline.report_gen import generate_weekly_report
+    from app.pipeline.stats import week_start_of
+
+    week_start = week_start_of(_now().date()) - timedelta(weeks=1)  # 지난주 월요일
+    done = 0
+    async with session_factory() as db:
+        store_ids = list((await db.execute(select(Store.id))).scalars())
+        for sid in store_ids:
+            try:
+                await generate_weekly_report(db, sid, week_start)
+                await send_report_ready(db, sid)
+                await db.commit()
+                done += 1
+            except Exception as exc:  # noqa: BLE001 - 한 매장 실패가 전체를 막지 않는다
+                await db.rollback()
+                logger.warning("주간 리포트 실패(store=%s): %s", sid, exc)
+    return done
 
 
 # --------------------------- 스케줄러 ---------------------------

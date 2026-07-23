@@ -7,7 +7,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import auth, dashboard, internal, replies, reviews, stores
+from app.routers import (
+    assistant,
+    auth,
+    compare,
+    dashboard,
+    internal,
+    replies,
+    reports,
+    reviews,
+    stores,
+)
 
 app = FastAPI(title="리뷰 진단 AI SaaS", version="0.1.0")
 
@@ -25,6 +35,9 @@ app.include_router(stores.router, prefix="/api/v1")
 app.include_router(reviews.router, prefix="/api/v1")
 app.include_router(replies.router, prefix="/api/v1")
 app.include_router(dashboard.router, prefix="/api/v1")
+app.include_router(reports.router, prefix="/api/v1")
+app.include_router(compare.router, prefix="/api/v1")
+app.include_router(assistant.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(internal.router)  # /internal/* — prefix 없이 (관리자 키 인증)
 

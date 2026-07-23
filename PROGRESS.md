@@ -4,7 +4,7 @@
 > **누가(나 / 다른 사람 / Claude Code) 이어받아도 이 파일만 보면 다음 작업을 시작할 수 있어야 한다.**
 > GitHub에 올릴 때마다 이 파일을 최신 상태로 갱신한다.
 >
-> 최종 갱신: **2026-07-21** · 진행: **T-11까지 완료 (백엔드 Phase 0~4 일부), 다음은 T-12**
+> 최종 갱신: **2026-07-21** · 진행: **T-14까지 완료 (백엔드 Phase 0~5), 다음은 T-15(백엔드 마지막)**
 
 ---
 
@@ -33,25 +33,24 @@
 - [x] **T-08** 분석 파이프라인 + 주간 집계 (analyze/stats/embed)
 - [x] **T-09** 답글 생성 + 승인 플로우 (반자동)
 - [x] **T-10** 카카오 + 웹푸시 + 디스패처 + 다이제스트
-- [x] **T-11** 대시보드 API + 점수 산식 + 리뷰 인박스(커서 페이지네이션)  ← **여기까지 완료**
-- [ ] **T-12** 주간 리포트 생성기  ← **다음 할 것**
-- [ ] **T-13** 경쟁매장 비교
-- [ ] **T-14** AI 비서 하이브리드 백엔드
-- [ ] **T-15** 데모 시드 + 운영 마감(배포 compose, CI 등)
+- [x] **T-11** 대시보드 API + 점수 산식 + 리뷰 인박스(커서 페이지네이션)
+- [x] **T-12** 주간 리포트 생성기 (수치 환각 검증 → 1회 재생성)
+- [x] **T-13** 경쟁매장 비교 (+ 경쟁매장 등록 플로우, 통계 분리 강제)
+- [x] **T-14** AI 비서 하이브리드 백엔드 (라우터→템플릿쿼리→SSE)  ← **여기까지 완료**
+- [ ] **T-15** 데모 시드 + 운영 마감(배포 compose, CI 등)  ← **다음 할 것 (백엔드 마지막)**
 
 ### 프론트 (아직 스캐폴딩만, T-F1부터 미착수)
 - [ ] T-F1 인증+API클라이언트 / T-F2 온보딩 / T-F3 인박스+답글 / T-F4 대시보드 / T-F5 리포트·비교 / T-F6 PWA+웹푸시 / T-F7 비서채팅
 
-## 4. 다음 작업 (T-12) — 시작점
+## 4. 다음 작업 (T-15) — 시작점 · 백엔드 마지막
 
-`docs/TASKS.md`의 **T-12** 참고. 요약:
-- `backend/app/pipeline/report_gen.py`: `generate_weekly_report(db, store_id, week_start)` — 4주치 통계 + 급증 키워드 + 경쟁 통계를 프롬프트에 넣어 `generate("report_v1", ..., WeeklyReportOut)`.
-- `backend/prompts/report_v1.md`: 진단(위험/주의/강점/기회, **근거 수치 필수**) + 처방. 가드레일: 집계값만 인용.
-- **수치 검증(핵심)**: `diagnosis.evidence` 안의 숫자가 프롬프트에 넣은 집계값 집합에 없으면 **1회 재생성**, 재실패 시 해당 항목 제거 → `reports` insert.
-- reports 라우터: `GET /stores/{id}/reports/latest`, `GET /stores/{id}/reports/{report_id}`.
-- 워커 잡 연결: 월 07:00 `generate_weekly_reports`(worker.py 스텁 존재) → report_gen 실제 호출 + `dispatch.send_report_ready`.
-- 완료 조건: "프롬프트에 없는 숫자" 케이스에서 재생성 분기 타는 테스트(LLM mock 2회 응답).
-- 참고: `WeeklyReportOut`/`Diagnosis`/`Prescription` 스키마는 `llm/schemas.py`에 이미 있음. LLM 호출은 `generate()`(mock) 사용.
+`docs/TASKS.md`의 **T-15** 참고. 요약:
+- `backend/scripts/seed_demo.py`: 가상 매장 2 + 경쟁매장 2 + 리뷰 300건 + 분석·통계·리포트까지 통째로 넣는 시드. **모든 화면이 이 시드만으로 완전 동작해야 함**(데모 이중화). LLM 없이 시드하려면 분석 결과도 직접 생성(랜덤/규칙 기반)해서 넣는 게 안전.
+- 배포용 `docker-compose.yml`(api + worker + caddy) + `backend/Dockerfile`, `backend/Dockerfile.worker`, `Caddyfile`.
+- GitHub Actions CI: `ruff check` + `pytest` + 프론트 `tsc --noEmit`/`next build`.
+- pg_dump 주 1회 잡(worker), 로그 점검.
+- 완료 조건: 빈 DB → 시드 → 전 화면 데이터 표시. VM에서 compose up으로 전체 기동.
+- 주의: 시드가 실제 GEMINI 호출 없이 돌아가게 만들 것(무료 쿼터/키 없이도 데모 준비 가능하게). 프론트(T-F1~F7)는 별도 라인.
 
 ## 5. 지금까지의 주요 결정/이탈 (이어받는 사람 필독)
 
@@ -63,6 +62,9 @@
 6. **크롤러 미해결(사람 필요)**: `selectors.yaml`의 실제 네이버 CSS 셀렉터값 미기입(구조만), 방문일 연도 파싱·`wait_for_selector` 보강은 셀렉터 확정 후.
 7. **마이그레이션 3개**: 001(init) / 002(crawl_jobs.collected) / 003(review_analysis.alerted_at).
 8. **점수 산식 상수**: `services/score.py`에 가중치(0.5/0.3/0.2) 분리. 대시보드는 `services/dashboard.py`가 weekly_aspect_stats + 답변율/키워드로 조립(`today` 주입 가능).
+9. **경쟁매장 등록**: `POST /stores/{id}/competitors`로만 등록(경쟁 store 자체 생성 + `competitor_of` 연결). 내 매장 `POST /channels`는 is_competitor=true 거부(통계 오염 방지). 경쟁 store는 `GET /stores` 목록에서 숨김.
+10. **AI 비서 SSE**: StreamingResponse 안에서 요청 DB세션 사용 불가 → 라우터 함수에서 스트림 소비·저장 후 SSE 재전송. 근거검색은 임베딩 미가용 시 최근 리뷰 폴백.
+11. **알림 실발송 키 미설정**: 카카오/VAPID 키 없이도 T-10 완료(mock). 발표 직전 키만 `.env`에 넣으면 실발송. 마이그레이션은 001~003 그대로.
 
 ## 6. 로컬 실행 방법
 
@@ -90,7 +92,7 @@ cd ../frontend && npm install && npm run dev
 
 ## 7. 테스트/품질 현황
 
-- **pytest 70개 전부 통과**, `ruff check` 통과 (모든 태스크 공통 완료조건).
+- **pytest 84개 전부 통과**, `ruff check` 통과 (모든 태스크 공통 완료조건).
 - DB 테스트는 로컬 docker postgres 사용(트랜잭션 롤백 격리). LLM/외부발송은 mock.
 
 ## 8. ⚠️ 보안

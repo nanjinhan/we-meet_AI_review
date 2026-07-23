@@ -59,6 +59,17 @@ class ChannelOut(BaseModel):
     is_competitor: bool
 
 
+# ---------- 경쟁매장 ----------
+class CompetitorCreate(BaseModel):
+    name: str = Field(min_length=1)
+    external_url: str  # 경쟁매장 네이버 플레이스 URL
+
+
+class CompetitorOut(BaseModel):
+    competitor_store_id: int
+    channel_id: int
+
+
 # ---------- reviews:import ----------
 class ImportResult(BaseModel):
     imported: int

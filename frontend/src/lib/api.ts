@@ -1,6 +1,10 @@
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+
+// Supabase 미설정 개발모드에서 쓰는 로컬 JWT (.env.local 의 NEXT_PUBLIC_DEV_TOKEN).
+// backend/.env 의 SUPABASE_JWT_SECRET 으로 서명, sub=시드의 DEV_USER_ID.
+const DEV_TOKEN = process.env.NEXT_PUBLIC_DEV_TOKEN;
 
 export class ApiError extends Error {
   constructor(
@@ -37,6 +41,8 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
       data: { session },
     } = await supabase.auth.getSession();
     token = session?.access_token;
+  } else if (DEV_TOKEN) {
+    token = DEV_TOKEN;
   }
 
   let res = await send(token);

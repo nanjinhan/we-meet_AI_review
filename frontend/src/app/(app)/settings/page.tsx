@@ -1,10 +1,14 @@
+import { Settings } from "lucide-react";
+import { PagePlaceholder } from "@/components/page-placeholder";
+
 export default function SettingsPage() {
   return (
-    <section>
-      <h1 className="text-xl font-bold">설정</h1>
-      <p className="mt-2 text-sm text-gray-500">
-        톤 프로필·알림 설정 (T-F 이후). API: <code>PUT /stores/&#123;id&#125;/settings</code>
-      </p>
-    </section>
+    <PagePlaceholder
+      icon={Settings}
+      title="설정"
+      description="톤 프로필 · 알림 설정"
+      task="T-F 이후"
+      api="PUT /stores/{id}/settings"
+    />
   );
 }

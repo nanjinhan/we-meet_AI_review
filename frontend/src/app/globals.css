@@ -1,8 +1,73 @@
 @import "tailwindcss";
 
+/* 디자인 토큰 (shadcn 호환 롤 네이밍, 라이트 고정)
+   차트 색은 dataviz 검증 팔레트: pos=#2a78d6(blue) / neg=#e34948(red) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+
+  --background: #f9f9f7; /* 페이지 플레인 */
+  --foreground: #0b0b0b;
+  --card: #fcfcfb; /* 카드/차트 표면 */
+  --card-foreground: #0b0b0b;
+  --muted: #f0efec;
+  --muted-foreground: #52514e;
+  --subtle-foreground: #898781; /* 축/보조 라벨 */
+  --border: #e5e4de;
+  --input: #e5e4de;
+  --primary: #1c5cab;
+  --primary-foreground: #ffffff;
+  --accent: #eef4fc;
+  --accent-foreground: #1c5cab;
+  --destructive: #d03b3b;
+  --destructive-foreground: #ffffff;
+  --ring: #2a78d6;
+
+  /* 차트 전용 */
+  --chart-pos: #2a78d6;
+  --chart-neg: #e34948;
+  --chart-grid: #e1e0d9;
+  --chart-axis: #898781;
+  --delta-up: #006300;
+  --delta-down: #d03b3b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-ring: var(--ring);
+  --color-chart-pos: var(--chart-pos);
+  --color-chart-neg: var(--chart-neg);
+  --color-delta-up: var(--delta-up);
+  --color-delta-down: var(--delta-down);
+
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  --animate-fade-up: fade-up 0.5s ease-out both;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
 body {

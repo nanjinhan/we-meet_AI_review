@@ -1,10 +1,14 @@
+import { Bot } from "lucide-react";
+import { PagePlaceholder } from "@/components/page-placeholder";
+
 export default function AssistantPage() {
   return (
-    <section>
-      <h1 className="text-xl font-bold">AI 비서</h1>
-      <p className="mt-2 text-sm text-gray-500">
-        채팅 UI + SSE 스트리밍 (T-F7에서 구현). API: <code>POST /assistant/messages</code>
-      </p>
-    </section>
+    <PagePlaceholder
+      icon={Bot}
+      title="AI 비서"
+      description="매장 데이터 기반 질의응답 채팅 (SSE 스트리밍)"
+      task="T-F7"
+      api="POST /stores/{id}/assistant/messages"
+    />
   );
 }

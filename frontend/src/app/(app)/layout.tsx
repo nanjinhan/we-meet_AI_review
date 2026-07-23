@@ -1,19 +1,53 @@
 "use client";
 
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import {
+  Bot,
+  FileText,
+  Inbox,
+  LayoutDashboard,
+  LogOut,
+  Scale,
+  Settings,
+  Sparkles,
+  Store as StoreIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { StoreProvider, useStore } from "@/components/store-provider";
+import { cn } from "@/lib/utils";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 const NAV = [
-  { href: "/dashboard", label: "대시보드" },
-  { href: "/inbox", label: "인박스" },
-  { href: "/reports", label: "리포트" },
-  { href: "/compare", label: "비교" },
-  { href: "/assistant", label: "비서" },
-  { href: "/settings", label: "설정" },
+  { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
+  { href: "/inbox", label: "인박스", icon: Inbox },
+  { href: "/reports", label: "리포트", icon: FileText },
+  { href: "/compare", label: "비교", icon: Scale },
+  { href: "/assistant", label: "AI 비서", icon: Bot },
+  { href: "/settings", label: "설정", icon: Settings },
 ];
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+function StoreSelect() {
+  const { stores, store, setStoreId } = useStore();
+  if (stores.length === 0) return null;
+  return (
+    <label className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm">
+      <StoreIcon className="h-4 w-4 text-muted-foreground" />
+      <select
+        value={store?.id ?? ""}
+        onChange={(e) => setStoreId(Number(e.target.value))}
+        className="max-w-40 bg-transparent outline-none"
+      >
+        {stores.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -25,30 +59,97 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-3xl flex-col">
-      <header className="flex items-center justify-between border-b px-4 py-3">
-        <span className="font-bold">리뷰 진단 AI</span>
-        <button onClick={logout} className="text-sm text-gray-500 hover:text-gray-800">
+    <div className="min-h-screen md:flex">
+      {/* 데스크톱 사이드바 */}
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-border bg-card md:flex">
+        <div className="flex items-center gap-2 px-5 py-5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <div className="leading-tight">
+            <p className="text-sm font-bold">리뷰 진단 AI</p>
+            <p className="text-[11px] text-muted-foreground">Naver Place Insights</p>
+          </div>
+        </div>
+
+        <nav className="flex-1 space-y-1 px-3">
+          {NAV.map(({ href, label, icon: Icon }) => {
+            const active = pathname.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                  active
+                    ? "bg-accent font-semibold text-accent-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <button
+          onClick={logout}
+          className="mx-3 mb-4 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <LogOut className="h-4 w-4" />
           로그아웃
         </button>
-      </header>
+      </aside>
 
-      <main className="flex-1 p-4">{children}</main>
-
-      <nav className="sticky bottom-0 grid grid-cols-6 border-t bg-white text-center text-xs">
-        {NAV.map((item) => {
-          const active = pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`py-2 ${active ? "font-semibold text-blue-600" : "text-gray-500"}`}
+      <div className="flex min-h-screen flex-1 flex-col md:pl-60">
+        {/* 상단 헤더 */}
+        <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-background/80 px-4 py-3 backdrop-blur md:px-8">
+          <span className="font-bold md:hidden">리뷰 진단 AI</span>
+          <div className="ml-auto flex items-center gap-2">
+            <StoreSelect />
+            <button
+              onClick={logout}
+              className="rounded-lg p-2 text-muted-foreground hover:bg-muted md:hidden"
+              aria-label="로그아웃"
             >
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </header>
+
+        <main className="flex-1 px-4 py-6 pb-24 md:px-8 md:pb-8">
+          <div className="mx-auto w-full max-w-5xl">{children}</div>
+        </main>
+
+        {/* 모바일 하단 탭 */}
+        <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-6 border-t border-border bg-card/95 text-center backdrop-blur md:hidden">
+          {NAV.map(({ href, label, icon: Icon }) => {
+            const active = pathname.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "flex flex-col items-center gap-0.5 py-2 text-[10px]",
+                  active ? "font-semibold text-primary" : "text-muted-foreground",
+                )}
+              >
+                <Icon className="h-5 w-5" />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
     </div>
+  );
+}
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <StoreProvider>
+      <Shell>{children}</Shell>
+    </StoreProvider>
   );
 }

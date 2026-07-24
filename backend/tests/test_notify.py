@@ -158,15 +158,29 @@ async def test_run_digest_groups_and_dedup(db):
                                  urgent=True, aspects=[], keywords=[], model_ver="m"))
     await db.flush()
 
+    # run_digest 는 DB 전체를 훑으므로(매장 수 반환) 데모 시드가 들어있으면 총계가 달라진다.
+    # → 총계 대신 '이 매장' 기준으로 검증한다.
     n = await dispatch.run_digest(db)
-    assert n == 1  # 1개 매장 알림
+    assert n >= 1
     digests = (
-        await db.execute(select(models.Alert).where(models.Alert.kind == "digest"))
+        await db.execute(
+            select(models.Alert).where(
+                models.Alert.kind == "digest", models.Alert.store_id == store.id
+            )
+        )
     ).scalars().all()
-    assert len(digests) == 1
+    assert len(digests) == 1  # 3건이 1개 알림으로 묶임
 
-    # 재실행 → 이미 alerted → 0 (중복 발송 방지)
-    assert await dispatch.run_digest(db) == 0
+    # 재실행 → 이 매장은 이미 alerted → 추가 알림 없음 (중복 발송 방지)
+    await dispatch.run_digest(db)
+    again = (
+        await db.execute(
+            select(models.Alert).where(
+                models.Alert.kind == "digest", models.Alert.store_id == store.id
+            )
+        )
+    ).scalars().all()
+    assert len(again) == 1
 
 
 # --------------------------- 엔드포인트 ---------------------------

@@ -20,7 +20,7 @@ from app.models import (
     WeeklyAspectStats,
 )
 from app.pipeline.stats import OVERALL, week_start_of
-from app.schemas.dashboard import AspectBar, DashboardOut, WeeklyPoint
+from app.schemas.dashboard import AspectBar, DashboardOut, RatingBucket, WeeklyPoint
 from app.services.score import composite_score
 
 
@@ -167,6 +167,35 @@ async def _keywords(db, store_id, weeks, *, top: int = 8) -> list[str]:
     return [kw for kw, _ in counter.most_common(top)]
 
 
+async def _rating_dist(db, store_id, weeks) -> list[RatingBucket]:
+    """기간 내(경쟁 제외) 평점 분포 5→1. 빈 구간도 count 0 으로 채운다."""
+    if not weeks:
+        return []
+    start, end = min(weeks), max(weeks) + timedelta(weeks=1)
+    stmt = (
+        select(Review.rating, func.count())
+        .join(StoreChannel, StoreChannel.id == Review.channel_id)
+        .where(
+            StoreChannel.store_id == store_id,
+            StoreChannel.is_competitor.is_(False),
+            Review.written_at >= start,
+            Review.written_at < end,
+            Review.rating.is_not(None),
+        )
+        .group_by(Review.rating)
+    )
+    counts = {int(r): int(c) for r, c in (await db.execute(stmt)).all()}
+    total = sum(counts.values())
+    return [
+        RatingBucket(
+            rating=r,
+            count=counts.get(r, 0),
+            ratio=round(counts.get(r, 0) / total, 3) if total else 0.0,
+        )
+        for r in range(5, 0, -1)
+    ]
+
+
 async def build_dashboard(
     db: AsyncSession, store_id: int, range_weeks: int = 4, today: date | None = None
 ) -> DashboardOut:
@@ -189,4 +218,5 @@ async def build_dashboard(
         trend=await _trend(db, store_id, weeks),
         aspects=await _aspects(db, store_id, weeks),
         keywords=await _keywords(db, store_id, weeks),
+        rating_dist=await _rating_dist(db, store_id, weeks),
     )

@@ -3,6 +3,7 @@
 import { Flame } from "lucide-react";
 import { useState } from "react";
 import { AspectBars } from "@/components/dashboard/AspectBars";
+import { RatingDist } from "@/components/dashboard/RatingDist";
 import { ScoreCard } from "@/components/dashboard/ScoreCard";
 import { StatTiles } from "@/components/dashboard/StatTiles";
 import { TrendChart } from "@/components/dashboard/TrendChart";
@@ -108,12 +109,21 @@ export default function DashboardPage() {
 
       {data && (
         <div className="space-y-4">
-          <FadeIn>
-            <ScoreCard score={data.score} delta={data.score_delta} />
-          </FadeIn>
-          <FadeIn delay={0.05}>
-            <StatTiles data={data} />
-          </FadeIn>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <FadeIn className="lg:col-span-2">
+              <div className="flex h-full flex-col gap-4">
+                <ScoreCard score={data.score} delta={data.score_delta} />
+                <StatTiles data={data} />
+              </div>
+            </FadeIn>
+            <FadeIn delay={0.05}>
+              <RatingDist
+                dist={data.rating_dist}
+                avgRating={data.avg_rating}
+                totalReviews={data.total_reviews}
+              />
+            </FadeIn>
+          </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <FadeIn delay={0.1}>
               <TrendChart trend={data.trend} />

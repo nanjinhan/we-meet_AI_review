@@ -20,6 +20,12 @@ class AspectBar(BaseModel):
     total_cnt: int
 
 
+class RatingBucket(BaseModel):
+    rating: int  # 5..1
+    count: int
+    ratio: float  # 평점 있는 리뷰 대비 비중 (0~1)
+
+
 class DashboardOut(BaseModel):
     range_weeks: int
     score: float
@@ -31,3 +37,4 @@ class DashboardOut(BaseModel):
     trend: list[WeeklyPoint]  # 주별 추이 (오래된→최신)
     aspects: list[AspectBar]  # aspect별 긍/부정 (전체 제외)
     keywords: list[str]  # 급증 키워드
+    rating_dist: list[RatingBucket]  # 별점 분포 (5→1, 빈 구간은 count 0)

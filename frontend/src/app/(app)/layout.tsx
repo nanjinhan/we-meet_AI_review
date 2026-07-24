@@ -60,18 +60,21 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen md:flex">
-      {/* 데스크톱 사이드바 — 다크 네이비 (콘텐츠 영역과 명확히 분리) */}
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col bg-[#101828] text-white md:flex">
+      {/* 데스크톱 사이드바 — 밝은 배경 + 바이올렛 활성 (레퍼런스: cascal) */}
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-border bg-card md:flex">
         <div className="flex items-center gap-2.5 px-5 py-6">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Sparkles className="h-4.5 w-4.5" />
           </span>
           <div className="leading-tight">
             <p className="text-sm font-bold">리뷰 진단 AI</p>
-            <p className="text-[11px] text-white/50">Naver Place Insights</p>
+            <p className="text-[11px] text-subtle-foreground">Naver Place Insights</p>
           </div>
         </div>
 
+        <p className="px-6 pb-2 text-[10px] font-semibold tracking-widest text-subtle-foreground">
+          MAIN MENU
+        </p>
         <nav className="flex-1 space-y-0.5 px-3">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = pathname.startsWith(href);
@@ -82,11 +85,11 @@ function Shell({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                   active
-                    ? "bg-white/10 font-semibold text-white"
-                    : "text-white/60 hover:bg-white/5 hover:text-white",
+                    ? "bg-accent font-semibold text-accent-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
-                <Icon className={cn("h-4 w-4", active && "text-[#6ba6f0]")} />
+                <Icon className={cn("h-4 w-4", active && "text-primary")} />
                 {label}
               </Link>
             );
@@ -95,7 +98,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
         <button
           onClick={logout}
-          className="mx-3 mb-5 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+          className="mx-3 mb-5 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <LogOut className="h-4 w-4" />
           로그아웃

@@ -28,13 +28,30 @@ const NAV = [
 
 function StoreSelect() {
   const { stores, store, setStoreId } = useStore();
-  if (stores.length === 0) return null;
+  const router = useRouter();
+  if (stores.length === 0) {
+    return (
+      <Link
+        href="/onboarding"
+        className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+      >
+        <StoreIcon className="h-4 w-4" />
+        매장 등록하기
+      </Link>
+    );
+  }
   return (
     <label className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm">
       <StoreIcon className="h-4 w-4 text-muted-foreground" />
       <select
         value={store?.id ?? ""}
-        onChange={(e) => setStoreId(Number(e.target.value))}
+        onChange={(e) => {
+          if (e.target.value === "__add__") {
+            router.push("/onboarding");
+            return;
+          }
+          setStoreId(Number(e.target.value));
+        }}
         className="max-w-40 bg-transparent outline-none"
       >
         {stores.map((s) => (
@@ -42,6 +59,7 @@ function StoreSelect() {
             {s.name}
           </option>
         ))}
+        <option value="__add__">＋ 매장 추가</option>
       </select>
     </label>
   );

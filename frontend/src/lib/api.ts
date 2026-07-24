@@ -16,6 +16,19 @@ export class ApiError extends Error {
   }
 }
 
+/** 현재 인증 토큰 — Supabase 세션 우선, 미설정 개발모드는 DEV_TOKEN. sse.ts 와 공유. */
+export async function getToken(): Promise<string | undefined> {
+  if (isSupabaseConfigured()) {
+    const {
+      data: { session },
+    } = await createClient().auth.getSession();
+    return session?.access_token;
+  }
+  return DEV_TOKEN;
+}
+
+export const API_BASE = BASE;
+
 /**
  * 모든 백엔드 호출의 단일 통로. Supabase 세션 토큰을 Bearer 로 붙이고,
  * 401 이면 refreshSession 1회 후 재시도한다. 컴포넌트에서 fetch 직접 호출 금지.

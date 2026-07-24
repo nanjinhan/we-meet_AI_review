@@ -72,7 +72,7 @@ export default function ReportsPage() {
           <FadeIn>
             <div className="grid gap-3 md:grid-cols-2">
               {diagnosis.map((d, i) => (
-                <DiagnosisCard key={i} item={d} />
+                <DiagnosisCard key={i} item={d} index={i} />
               ))}
             </div>
           </FadeIn>

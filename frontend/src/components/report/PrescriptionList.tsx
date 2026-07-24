@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, TrendingUp } from "lucide-react";
+import { Check } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Prescription } from "@/hooks/useReport";
@@ -74,8 +74,7 @@ export function PrescriptionList({
                   {rx.title}
                 </span>
                 <span className="block text-xs text-muted-foreground">{rx.detail}</span>
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-delta-up">
-                  <TrendingUp className="h-3 w-3" />
+                <span className="inline-block rounded-full bg-delta-up/10 px-2 py-0.5 text-[11px] font-medium text-delta-up">
                   {rx.expected_effect}
                 </span>
               </span>

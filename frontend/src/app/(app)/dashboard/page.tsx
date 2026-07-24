@@ -44,11 +44,29 @@ export default function DashboardPage() {
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold">대시보드</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-1">
+          <p className="text-xs text-subtle-foreground">
+            {new Date().toLocaleDateString("ko-KR", {
+              month: "long",
+              day: "numeric",
+              weekday: "long",
+            })}
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {store ? `안녕하세요, ${store.name} 사장님` : "대시보드"}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            {store ? `${store.name}의 최근 ${range.replace("w", "주")} 평판 요약` : "매장 평판 요약"}
+            {data
+              ? `최근 ${range.replace("w", "주")}간 리뷰 ${data.total_reviews.toLocaleString(
+                  "ko-KR",
+                )}건이 쌓였어요.` +
+                (data.score_delta != null
+                  ? data.score_delta >= 0
+                    ? ` 평판 점수는 ${data.score_delta.toFixed(1)}점 올랐습니다.`
+                    : ` 평판 점수가 ${Math.abs(data.score_delta).toFixed(1)}점 내려갔어요.`
+                  : "")
+              : "오늘의 매장 평판을 요약해 드릴게요."}
           </p>
         </div>
         <div className="flex rounded-lg border border-border bg-card p-0.5">

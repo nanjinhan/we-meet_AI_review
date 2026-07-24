@@ -60,19 +60,19 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen md:flex">
-      {/* 데스크톱 사이드바 */}
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-border bg-card md:flex">
-        <div className="flex items-center gap-2 px-5 py-5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Sparkles className="h-4 w-4" />
+      {/* 데스크톱 사이드바 — 다크 네이비 (콘텐츠 영역과 명확히 분리) */}
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col bg-[#101828] text-white md:flex">
+        <div className="flex items-center gap-2.5 px-5 py-6">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <Sparkles className="h-4.5 w-4.5" />
           </span>
           <div className="leading-tight">
             <p className="text-sm font-bold">리뷰 진단 AI</p>
-            <p className="text-[11px] text-muted-foreground">Naver Place Insights</p>
+            <p className="text-[11px] text-white/50">Naver Place Insights</p>
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3">
+        <nav className="flex-1 space-y-0.5 px-3">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = pathname.startsWith(href);
             return (
@@ -80,13 +80,13 @@ function Shell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                   active
-                    ? "bg-accent font-semibold text-accent-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    ? "bg-white/10 font-semibold text-white"
+                    : "text-white/60 hover:bg-white/5 hover:text-white",
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className={cn("h-4 w-4", active && "text-[#6ba6f0]")} />
                 {label}
               </Link>
             );
@@ -95,7 +95,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
         <button
           onClick={logout}
-          className="mx-3 mb-4 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="mx-3 mb-5 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/60 transition-colors hover:bg-white/5 hover:text-white"
         >
           <LogOut className="h-4 w-4" />
           로그아웃
@@ -104,7 +104,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-h-screen flex-1 flex-col md:pl-60">
         {/* 상단 헤더 */}
-        <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-background/80 px-4 py-3 backdrop-blur md:px-8">
+        <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-card/90 px-4 py-3 backdrop-blur md:px-8">
           <span className="font-bold md:hidden">리뷰 진단 AI</span>
           <div className="ml-auto flex items-center gap-2">
             <StoreSelect />

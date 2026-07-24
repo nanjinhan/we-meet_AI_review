@@ -68,7 +68,7 @@ export default function ComparePage() {
       {data && (
         <div className="space-y-4">
           <FadeIn>
-            <Card className="border-l-4 border-l-primary">
+            <Card>
               <CardContent className="flex items-start gap-3 p-4">
                 <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
                   <Lightbulb className="h-4 w-4" />

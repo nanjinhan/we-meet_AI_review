@@ -3,59 +3,53 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { Diagnosis } from "@/hooks/useReport";
 
 /** 진단 레벨별 표현. 색만으로 의미를 전달하지 않도록 아이콘+라벨을 함께 쓴다. */
-const LEVELS: Record<string, { label: string; icon: LucideIcon; bar: string; fg: string; bg: string }> =
-  {
-    crit: {
-      label: "심각",
-      icon: AlertOctagon,
-      bar: "bg-level-crit",
-      fg: "text-level-crit",
-      bg: "bg-level-crit/10",
-    },
-    warn: {
-      label: "주의",
-      icon: AlertTriangle,
-      bar: "bg-level-warn",
-      fg: "text-amber-700",
-      bg: "bg-level-warn/15",
-    },
-    strength: {
-      label: "강점",
-      icon: ThumbsUp,
-      bar: "bg-level-strength",
-      fg: "text-level-strength",
-      bg: "bg-level-strength/10",
-    },
-    opportunity: {
-      label: "기회",
-      icon: Lightbulb,
-      bar: "bg-level-opportunity",
-      fg: "text-level-opportunity",
-      bg: "bg-level-opportunity/10",
-    },
-  };
+const LEVELS: Record<string, { label: string; icon: LucideIcon; fg: string; bg: string }> = {
+  crit: {
+    label: "심각",
+    icon: AlertOctagon,
+    fg: "text-level-crit",
+    bg: "bg-level-crit/10",
+  },
+  warn: {
+    label: "주의",
+    icon: AlertTriangle,
+    fg: "text-amber-700",
+    bg: "bg-level-warn/15",
+  },
+  strength: {
+    label: "강점",
+    icon: ThumbsUp,
+    fg: "text-level-strength",
+    bg: "bg-level-strength/10",
+  },
+  opportunity: {
+    label: "기회",
+    icon: Lightbulb,
+    fg: "text-level-opportunity",
+    bg: "bg-level-opportunity/10",
+  },
+};
 
 export function DiagnosisCard({ item }: { item: Diagnosis }) {
   const level = LEVELS[item.level] ?? LEVELS.opportunity;
   const Icon = level.icon;
 
   return (
-    <Card className="relative overflow-hidden">
-      {/* 좌측 컬러 바 — 레벨 구분의 보조 단서 */}
-      <span className={`absolute inset-y-0 left-0 w-1 ${level.bar}`} />
-      <CardContent className="space-y-2 p-4 pl-5">
-        <div className="flex items-center gap-2">
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${level.bg} ${level.fg}`}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {level.label}
-          </span>
+    <Card>
+      <CardContent className="flex items-start gap-3 p-4">
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${level.bg} ${level.fg}`}
+        >
+          <Icon className="h-4.5 w-4.5" />
+        </span>
+        <div className="min-w-0 space-y-1.5">
+          <p className={`text-[11px] font-semibold ${level.fg}`}>{level.label}</p>
+          <p className="text-sm font-semibold leading-snug">{item.title}</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            <span className="text-subtle-foreground">근거 · </span>
+            {item.evidence}
+          </p>
         </div>
-        <p className="text-sm font-semibold">{item.title}</p>
-        <p className="rounded-lg bg-muted px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-          근거 · {item.evidence}
-        </p>
       </CardContent>
     </Card>
   );

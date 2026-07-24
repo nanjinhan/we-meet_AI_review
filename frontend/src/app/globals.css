@@ -25,10 +25,18 @@
   /* 차트 전용 */
   --chart-pos: #2a78d6;
   --chart-neg: #e34948;
+  --chart-ours: #2a78d6; /* 비교: 우리 매장 */
+  --chart-comp: #eb6834; /* 비교: 경쟁 매장 */
   --chart-grid: #e1e0d9;
   --chart-axis: #898781;
   --delta-up: #006300;
   --delta-down: #d03b3b;
+
+  /* 진단 레벨 (리포트) — 색만으로 의미를 전달하지 않고 항상 아이콘+라벨과 함께 쓴다 */
+  --level-crit: #d03b3b;
+  --level-warn: #fab219;
+  --level-strength: #0ca30c;
+  --level-opportunity: #2a78d6;
 }
 
 @theme inline {
@@ -50,8 +58,14 @@
   --color-ring: var(--ring);
   --color-chart-pos: var(--chart-pos);
   --color-chart-neg: var(--chart-neg);
+  --color-chart-ours: var(--chart-ours);
+  --color-chart-comp: var(--chart-comp);
   --color-delta-up: var(--delta-up);
   --color-delta-down: var(--delta-down);
+  --color-level-crit: var(--level-crit);
+  --color-level-warn: var(--level-warn);
+  --color-level-strength: var(--level-strength);
+  --color-level-opportunity: var(--level-opportunity);
 
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;

@@ -6,3 +6,8 @@ next-env.d.ts
 .env*.local
 src/lib/api-types.d.ts
 *.tsbuildinfo
+
+# Serwist(T-F6) 빌드 산출물 — sw.ts에서 `next build`가 매번 재생성
+/public/sw.js
+/public/sw.js.map
+/public/swe-worker-*.js

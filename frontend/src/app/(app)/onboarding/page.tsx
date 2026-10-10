@@ -1,14 +1,16 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Bell, Check, Link2, MessageSquareQuote, Store, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bell, BellRing, Check, Link2, MessageSquareQuote, Store, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { InstallBanner } from "@/components/pwa/InstallBanner";
 import { useStore } from "@/components/store-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import type { components } from "@/lib/api-types";
+import { subscribeToPush, type PushSubscribeOutcome } from "@/lib/push";
 import { cn } from "@/lib/utils";
 
 type StoreOut = components["schemas"]["StoreOut"];
@@ -50,6 +52,18 @@ export default function OnboardingPage() {
   // step 5
   const [notifyUrgent, setNotifyUrgent] = useState(true);
   const [notifyDigest, setNotifyDigest] = useState(true);
+  const [pushStatus, setPushStatus] = useState<PushSubscribeOutcome | "idle" | "subscribing">("idle");
+
+  // 별도 버튼으로 둔다: finish() 안에 넣으면 그 전에 걸리는 await들 때문에 "사용자 제스처" 체인이
+  // 끊겨 Safari가 권한 팝업을 막는다. T-F6, lib/push.ts 참고.
+  const handlePushSubscribe = async () => {
+    setPushStatus("subscribing");
+    try {
+      setPushStatus(await subscribeToPush());
+    } catch {
+      setPushStatus("denied");
+    }
+  };
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -354,8 +368,50 @@ export default function OnboardingPage() {
                   </span>
                 </button>
               ))}
+
+              <InstallBanner />
+
+              <div className="rounded-lg border border-border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span>
+                    <span className="block text-sm font-medium">브라우저 웹푸시</span>
+                    <span className="block text-xs text-muted-foreground">
+                      이 기기에서 바로 알림을 받을 수 있게 지금 권한을 요청해요.
+                    </span>
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePushSubscribe}
+                    disabled={pushStatus === "subscribing" || pushStatus === "subscribed"}
+                  >
+                    <BellRing className="h-4 w-4" />
+                    {pushStatus === "subscribed"
+                      ? "켜짐"
+                      : pushStatus === "subscribing"
+                        ? "요청 중…"
+                        : "알림 켜기"}
+                  </Button>
+                </div>
+                {pushStatus === "denied" && (
+                  <p className="mt-2 text-[11px] text-destructive">
+                    브라우저 알림 권한이 거부됐어요. 브라우저 설정에서 이 사이트 알림을 허용한 뒤 새로고침해 주세요.
+                  </p>
+                )}
+                {pushStatus === "unsupported" && (
+                  <p className="mt-2 text-[11px] text-subtle-foreground">
+                    이 브라우저는 웹푸시를 지원하지 않아요. iOS는 위 안내대로 먼저 홈 화면에 추가해 주세요.
+                  </p>
+                )}
+                {pushStatus === "no-vapid-key" && (
+                  <p className="mt-2 text-[11px] text-subtle-foreground">
+                    서버에 웹푸시 키가 아직 설정되지 않았어요(발표 전 설정 예정). 수신 설정만 먼저 저장돼요.
+                  </p>
+                )}
+              </div>
+
               <p className="text-[11px] text-subtle-foreground">
-                카카오톡·웹푸시 실제 발송 연결은 준비 중이에요. 지금은 수신 설정만 저장됩니다.
+                카카오톡 실제 발송 연결은 준비 중이에요. 아래 토글은 두 채널 모두에 적용되는 수신 설정입니다.
               </p>
             </div>
           )}

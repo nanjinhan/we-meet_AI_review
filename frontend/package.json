@@ -10,6 +10,7 @@
     "gen:api": "openapi-typescript http://localhost:8000/openapi.json -o src/lib/api-types.d.ts"
   },
   "dependencies": {
+    "@serwist/next": "^9.5.13",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.0",
     "@tanstack/react-query": "^5.62.0",
@@ -21,6 +22,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^3.10.0",
+    "serwist": "^9.5.13",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {

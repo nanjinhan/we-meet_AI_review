@@ -105,7 +105,7 @@ async def search_evidence(
     weeks: int,
     k: int = 5,
 ) -> list[Review]:
-    """근거 리뷰 검색. BGE-M3 임베딩 + pgvector cosine, 미가용 시 최근 리뷰 폴백."""
+    """근거 리뷰 검색. BGE-M3 임베딩 + pgvector cosine, 임베딩 미가용/0건 시 최근 리뷰 폴백."""
     wk = _week_starts(weeks)
     start, end = min(wk), max(wk) + timedelta(weeks=1)
     stmt = (
@@ -131,12 +131,16 @@ async def search_evidence(
         vec = vecs[0] if vecs else None
 
     if vec is not None:
-        stmt = (
+        vec_stmt = (
             stmt.join(ReviewEmbedding, ReviewEmbedding.review_id == Review.id)
             .order_by(ReviewEmbedding.embedding.cosine_distance(vec))
             .limit(k)
         )
-    else:
-        stmt = stmt.order_by(Review.written_at.desc(), Review.id.desc()).limit(k)
+        rows = list((await db.execute(vec_stmt)).scalars().all())
+        if rows:
+            return rows
+        # INNER JOIN이라 "임베딩 라이브러리는 있지만 이 리뷰들은 아직 임베딩 전"(신규 리뷰,
+        # embed.py 백필 전 등)이면 0건으로 떨어진다 — 그 경우도 최근 리뷰로 폴백한다.
 
+    stmt = stmt.order_by(Review.written_at.desc(), Review.id.desc()).limit(k)
     return list((await db.execute(stmt)).scalars().all())

@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     # --- 크롤러 스냅샷 ---
     snapshot_dir: str = "/data/snapshots"
 
+    # --- DB 백업 (T-15, worker 주 1회 pg_dump — Supabase 자동백업의 2차 보완) ---
+    backup_dir: str = "/data/backups"
+
+    # --- CORS (배포 시 프론트 도메인으로 좁힘, 콤마 구분. 기본값은 로컬 전체 허용) ---
+    frontend_origins: str = "*"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

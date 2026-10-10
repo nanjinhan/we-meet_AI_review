@@ -7,6 +7,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import settings
 from app.routers import (
     assistant,
     auth,
@@ -21,11 +22,15 @@ from app.routers import (
 
 app = FastAPI(title="리뷰 진단 AI SaaS", version="0.1.0")
 
-# 프론트(Vercel)에서의 크로스오리진 호출 허용. 배포 시 도메인으로 좁힌다.
+# 프론트(Vercel)에서의 크로스오리진 호출 허용. FRONTEND_ORIGINS(콤마 구분)로 배포 도메인으로
+# 좁힌다 — 기본값 "*"(로컬 전체 허용)일 때만 와일드카드를 쓴다. "*"와 allow_credentials=True는
+# 브라우저가 동시에 허용하지 않으므로(CORS 스펙), 그 경우는 credentials를 끈다 (T-15).
+origins = [o.strip() for o in settings.frontend_origins.split(",") if o.strip()]
+is_wildcard = origins == ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=origins,
+    allow_credentials=not is_wildcard,
     allow_methods=["*"],
     allow_headers=["*"],
 )

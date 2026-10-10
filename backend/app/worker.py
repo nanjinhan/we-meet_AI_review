@@ -3,12 +3,13 @@
 api 와 같은 DB 를 쓰지만 FastAPI 앱은 import 하지 않는다 — collectors/services/pipeline 만.
 api ↔ worker 통신 채널은 crawl_jobs 테이블 하나뿐 (HTTP/큐 없음, ARCHITECTURE §1).
 
-스케줄 잡 5종 (BACKEND.md §8):
+스케줄 잡 6종 (BACKEND.md §8, 6번은 T-15):
   1) 매장별 크롤: 09:00 / 21:00 + jitter → naver 채널마다 crawl_jobs pending 적재
   2) crawl_jobs 폴링: 10초 간격, pending → running → 수집 → done/failed
   3) 알림 다이제스트: 매시 정각 (T-10 에서 발송 연결)
   4) 주간 리포트: 월 07:00 (T-12 에서 연결)
   5) 스냅샷 청소: 일 1회, 7일 지난 HTML 삭제
+  6) DB 백업: 일요일 05:00, pg_dump → /data/backups (Supabase 자동백업의 2차 보완, T-15)
 
 핵심 로직(run_crawl_job/백오프/자가진단)은 스케줄러와 분리해 통합 테스트가 가능하도록 했다.
 """
@@ -17,12 +18,14 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.collectors.base import BaseCollector
 from app.collectors.naver import NaverCollector, rotate_all_snapshots
+from app.config import settings
 from app.db import SessionLocal
 from app.models import Alert, CrawlJob, Review, StoreChannel
 from app.services.ingest import store_raw_reviews
@@ -228,6 +231,61 @@ async def cleanup_snapshots() -> int:
     return rotate_all_snapshots()
 
 
+def _prune_old_backups(backup_dir: Path, *, keep_days: int = 28) -> int:
+    """keep_days 보다 오래된 백업 파일 삭제 (디스크 무한증가 방지). 삭제 수 반환."""
+    cutoff = _now().timestamp() - keep_days * 86400
+    removed = 0
+    for f in backup_dir.glob("reviewdb_*.dump"):
+        if f.stat().st_mtime < cutoff:
+            f.unlink(missing_ok=True)
+            removed += 1
+    return removed
+
+
+async def backup_database(*, backup_dir: str | None = None) -> str | None:
+    """주 1회 pg_dump 백업 (ARCHITECTURE.md §5, T-15 잔여 작업).
+
+    Supabase 자동 백업(7일 보관)을 보완하는 2차 백업 — VM 로컬 디스크에 보관한다.
+    `pg_dump` 바이너리가 없거나 실패해도 워커 전체를 죽이지 않는다(best-effort, 로그만 남김).
+    DATABASE_URL 은 asyncpg용 스킴(`postgresql+asyncpg://`)이라 pg_dump가 이해하는
+    `postgresql://`로 바꿔서 넘긴다.
+    """
+    target_dir = Path(backup_dir or settings.backup_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    stamp = _now().strftime("%Y%m%dT%H%M%SZ")
+    dest = target_dir / f"reviewdb_{stamp}.dump"
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "pg_dump",
+            dsn,
+            "-Fc",  # custom format — pg_restore로 복원, gzip보다 효율적
+            "-f",
+            str(dest),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+    except FileNotFoundError:
+        logger.warning("pg_dump 바이너리가 없습니다 — 백업 skip(로컬 개발 환경 등).")
+        return None
+
+    if proc.returncode != 0:
+        logger.warning(
+            "pg_dump 실패(rc=%s): %s", proc.returncode, stderr.decode(errors="replace")[:500]
+        )
+        dest.unlink(missing_ok=True)
+        return None
+
+    logger.info("pg_dump 완료: %s (%d bytes)", dest, dest.stat().st_size)
+    removed = _prune_old_backups(target_dir)
+    if removed:
+        logger.info("오래된 백업 %d개 정리", removed)
+    return str(dest)
+
+
 # --------------------------- 미연결 잡 (스텁) ---------------------------
 async def send_hourly_digest(
     *, session_factory: async_sessionmaker[AsyncSession] = SessionLocal
@@ -292,6 +350,10 @@ def build_scheduler():
     )
     # 5) 스냅샷 청소: 매일 04:00
     scheduler.add_job(cleanup_snapshots, CronTrigger(hour=4), id="cleanup_snapshots")
+    # 6) DB 백업: 일요일 05:00 (pg_dump, T-15)
+    scheduler.add_job(
+        backup_database, CronTrigger(day_of_week="sun", hour=5), id="backup_database"
+    )
     return scheduler
 
 

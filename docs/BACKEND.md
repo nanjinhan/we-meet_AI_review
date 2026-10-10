@@ -204,6 +204,7 @@ scheduler = AsyncIOScheduler(timezone="Asia/Seoul")
 # 3) 알림 다이제스트: 매시 정각, 미발송 일반 부정 리뷰 묶음 발송
 # 4) 주간 리포트: 월 07:00, 전 매장 report_gen 실행
 # 5) 스냅샷 청소: 일 1회, 7일 지난 HTML 삭제
+# 6) DB 백업: 일요일 05:00, pg_dump → /data/backups (T-15, Supabase 자동백업의 2차 보완)
 # 크롤 실패 시 백오프 재시도(5분→30분→2시간, 3회 후 포기)는 job 내부에서 처리
 ```
 

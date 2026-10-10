@@ -1,0 +1,15 @@
+# HTTPS 리버스 프록시 — DOMAIN이 실제 도메인이면 Let's Encrypt 인증서를 자동 발급·갱신한다.
+# DOMAIN 기본값은 docker-compose.yml에서 localhost로 주입(그 경우 HTTP로만 동작, 로컬 확인용).
+{$DOMAIN} {
+	reverse_proxy api:8000 {
+		# AI 비서는 SSE(fetch 스트림, lib/sse.ts)다 — 버퍼링하면 토큰이 끊어져서 온다.
+		# flush_interval -1 = 응답을 모으지 않고 받는 즉시 클라이언트로 흘려보낸다.
+		flush_interval -1
+	}
+
+	encode gzip
+	log {
+		output stdout
+		format json
+	}
+}

@@ -1,0 +1,59 @@
+# 배포용 (VM 1대, 예: Lightsail 2GB) — api + worker + caddy.
+# DB는 여기 없다: 운영 DB는 Supabase(Postgres+pgvector) 원격 접속이다(docker-compose.dev.yml만
+# 로컬용 postgres 컨테이너를 띄운다). ARCHITECTURE.md §1/§2/§5 참고.
+#
+# 사용법:
+#   1) 이 파일과 같은 디렉토리에 .env 생성 (.env.example 참고, 실서비스 값 채우기)
+#   2) DOMAIN=example.com (없으면 localhost — HTTPS 인증서 없이 HTTP로만 동작)
+#   3) docker compose up -d --build
+#   4) (최초 1회, 데모용) docker compose exec api python -m scripts.seed_demo
+#
+# 마이그레이션은 Supabase CLI로 미리 적용해 둔다(초기화 훅 없음 — 원격 DB라 자동 적용 안 함):
+#   supabase db push  또는  psql "$DATABASE_URL" -f backend/migrations/001_init.sql ...(순서대로)
+#   ⚠ 000_dev_auth_stub.sql 은 로컬 전용이다 — Supabase에는 적용하지 말 것.
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file: .env
+    restart: unless-stopped
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      - worker_snapshots:/data/snapshots
+      - worker_backups:/data/backups
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: "${DOMAIN:-localhost}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  worker_snapshots:
+  worker_backups:
+  caddy_data:
+  caddy_config:

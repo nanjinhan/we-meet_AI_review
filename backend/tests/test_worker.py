@@ -3,7 +3,10 @@
 + 실패→failed, 백오프 재시도, 0건 2연속 자가진단, /internal/crawl:trigger 를 검증한다.
 """
 
+import os
+import time
 from datetime import date
+from pathlib import Path
 from uuid import uuid4
 
 from sqlalchemy import func, select
@@ -11,7 +14,9 @@ from sqlalchemy import func, select
 from app import models
 from app.collectors.base import BaseCollector, RawReview
 from app.worker import (
+    _prune_old_backups,
     _run_with_backoff,
+    backup_database,
     enqueue_scheduled_crawls,
     is_structure_change_suspected,
     process_pending_jobs,
@@ -307,3 +312,79 @@ async def test_internal_trigger_requires_key_and_inserts_job(client, db):
         headers={"X-Internal-Key": settings.internal_api_key},
     )
     assert res.status_code == 404
+
+
+# --------------------------- DB 백업 (T-15, 6번 잡) ---------------------------
+class _FakeProc:
+    """asyncio.create_subprocess_exec 의 스텁. communicate()에서 dest 파일을 만들어
+    실제 pg_dump가 파일을 쓰는 것을 흉내 낸다."""
+
+    def __init__(self, returncode: int, dest=None, stderr: bytes = b""):
+        self.returncode = returncode
+        self._dest = dest
+        self._stderr = stderr
+
+    async def communicate(self):
+        if self.returncode == 0 and self._dest is not None:
+            self._dest.write_bytes(b"fake pg_dump output")
+        return (b"", self._stderr)
+
+
+async def test_backup_database_writes_dump_file(tmp_path, monkeypatch):
+    captured = {}
+
+    async def fake_exec(*args, **kwargs):
+        captured["args"] = args
+        dest = Path(args[args.index("-f") + 1])
+        return _FakeProc(returncode=0, dest=dest)
+
+    monkeypatch.setattr("app.worker.asyncio.create_subprocess_exec", fake_exec)
+
+    result = await backup_database(backup_dir=str(tmp_path))
+
+    assert result is not None
+    dumped = Path(result)
+    assert dumped.exists() and dumped.read_bytes() == b"fake pg_dump output"
+    # asyncpg 스킴은 pg_dump가 못 읽으므로 postgresql:// 로 바뀌어 전달돼야 한다
+    assert captured["args"][1].startswith("postgresql://")
+    assert "+asyncpg" not in captured["args"][1]
+
+
+async def test_backup_database_failure_removes_partial_file(tmp_path, monkeypatch):
+    async def fake_exec(*args, **kwargs):
+        dest = Path(args[args.index("-f") + 1])
+        return _FakeProc(returncode=1, dest=dest, stderr=b"connection refused")
+
+    monkeypatch.setattr("app.worker.asyncio.create_subprocess_exec", fake_exec)
+
+    result = await backup_database(backup_dir=str(tmp_path))
+
+    assert result is None
+    assert list(tmp_path.glob("reviewdb_*.dump")) == []
+
+
+async def test_backup_database_missing_pg_dump_binary_is_non_fatal(tmp_path, monkeypatch):
+    async def fake_exec(*args, **kwargs):
+        raise FileNotFoundError("pg_dump not found")
+
+    monkeypatch.setattr("app.worker.asyncio.create_subprocess_exec", fake_exec)
+
+    result = await backup_database(backup_dir=str(tmp_path))
+
+    assert result is None
+
+
+def test_prune_old_backups_removes_only_stale_files(tmp_path):
+    fresh = tmp_path / "reviewdb_20260101T000000Z.dump"
+    stale = tmp_path / "reviewdb_20250101T000000Z.dump"
+    fresh.write_bytes(b"x")
+    stale.write_bytes(b"x")
+
+    old_time = time.time() - 40 * 86400  # 40일 전 — 기본 keep_days=28보다 오래됨
+    os.utime(stale, (old_time, old_time))
+
+    removed = _prune_old_backups(tmp_path)
+
+    assert removed == 1
+    assert fresh.exists()
+    assert not stale.exists()

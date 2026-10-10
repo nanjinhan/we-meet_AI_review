@@ -1,0 +1,27 @@
+# worker용 — APScheduler 엔트리포인트(`python -m app.worker`). Playwright(크롤러)가 쓰는
+# 크로미움 + OS 의존성이 api 이미지보다 훨씬 무겁기 때문에 별도 이미지로 분리한다.
+# (T-15, ARCHITECTURE.md §2/§5)
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+# postgresql-client: 주 1회 pg_dump 백업 잡(worker.py backup_database)이 쓴다.
+
+COPY pyproject.toml ./
+COPY app ./app
+RUN pip install --no-cache-dir -e .
+# Playwright 크로미움 + 필요한 시스템 라이브러리 전부 설치 (--with-deps)
+RUN playwright install --with-deps chromium
+
+COPY migrations ./migrations
+COPY prompts ./prompts
+COPY selectors.yaml ./selectors.yaml
+
+# 크롤 스냅샷(/data/snapshots) + pg_dump 백업(/data/backups) — 둘 다 compose에서 볼륨 마운트
+RUN mkdir -p /data/snapshots /data/backups
+
+CMD ["python", "-m", "app.worker"]

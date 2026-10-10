@@ -4,7 +4,7 @@
 
 > 3인 학생팀 · 12주 MVP · 요구사항 원천은 [`docs/TECH_SPEC.md`](docs/TECH_SPEC.md)
 
-**진행 상황: 백엔드 T-01~T-14 + 프론트 T-F1 완료 · pytest 84개 통과** — 상세·다음 작업은 👉 [`이어서진행.md`](이어서진행.md)
+**진행 상황: 백엔드 T-01~T-15 + 프론트 T-F1~T-F7 전부 완료 · pytest 88개 통과 — 코드 기준 MVP 끝** — 남은 건 실제 배포·키 발급·인터뷰(코딩 아님). 상세는 👉 [`이어서진행.md`](이어서진행.md)
 
 ---
 
@@ -15,9 +15,9 @@
 | 백엔드 | Python 3.12(목표) · FastAPI · SQLAlchemy 2.0 async + asyncpg · APScheduler · Playwright |
 | DB | PostgreSQL 15 + pgvector (로컬은 docker) |
 | LLM | **Google Gemini 무료 티어** (프로바이더 추상화 — `backend/app/llm/client.py` 한 파일만 의존) |
-| 프론트 | Next.js 15 + TypeScript + Tailwind (스캐폴딩 단계) |
+| 프론트 | Next.js 15 + TypeScript + Tailwind + shadcn 스타일 UI + Serwist(PWA) — 전 화면 구현 완료 |
 
-## 빠른 시작
+## 빠른 시작 (로컬 개발)
 
 ```bash
 # 1) DB
@@ -25,17 +25,21 @@ docker compose -f docker-compose.dev.yml up -d
 
 # 2) 백엔드
 cd backend
-python -m venv .venv && source .venv/Scripts/activate   # Windows Git Bash
+python -m venv .venv && source .venv/Scripts/activate   # Windows Git Bash. 반드시 Python 3.12(결정 18)
 pip install -e ".[dev]"
 cp ../.env.example .env        # ★ 각자 GEMINI_API_KEY 발급해 넣기 → https://aistudio.google.com/apikey
-uvicorn app.main:app --reload  # http://localhost:8000/healthz
-pytest                         # 전체 테스트
+uvicorn app.main:app --reload --port 8010  # http://localhost:8010/healthz
+pytest                         # 전체 테스트 (88개)
+python -m scripts.seed_demo    # 데모 시드 (매장2+경쟁2+리뷰366+집계+리포트)
 
 # 3) 프론트
 cd ../frontend && npm install && npm run dev
 ```
 
 > 🔒 `.env`(특히 `GEMINI_API_KEY`)는 **커밋 금지**. 저장소엔 `.env.example`만 있고, 각자 자기 키를 로컬 `.env`에 넣는다.
+
+VM에 실제 배포하려면(Supabase·도메인 준비 후) 레포 루트의 `docker-compose.yml`(api+worker+caddy) —
+상세는 [`이어서진행.md`](이어서진행.md) §6-1.
 
 ## 저장소 구조
 
@@ -48,11 +52,16 @@ backend/
     llm/          # LLM 게이트웨이 (client / schemas) — 유일한 벤더 의존점
     notify/       # 알림 (kakao / webpush / dispatch)
     routers/      # API 엔드포인트
-    worker.py     # APScheduler 워커 (크롤·분석·다이제스트)
-  migrations/     # 001_init ~ 003 (SQL)
+    worker.py     # APScheduler 워커 (크롤·분석·다이제스트·DB백업, 6개 스케줄 잡)
+  migrations/     # 000(로컬전용 auth스텁)~003 (SQL)
+  Dockerfile / Dockerfile.worker   # 배포용 이미지 (api / worker)
   prompts/        # LLM 프롬프트 (버전 관리)
   tests/          # pytest (docker postgres 대상, 외부 호출은 mock)
-frontend/         # Next.js 15 PWA (예정: T-F1~F7)
+frontend/         # Next.js 15 PWA — 전 화면(대시보드/인박스/리포트/비교/비서/온보딩) + PWA·웹푸시
+docker-compose.yml       # 배포용: api + worker + caddy (DB는 Supabase 원격)
+docker-compose.dev.yml   # 로컬 개발용: postgres(pgvector 포함)
+Caddyfile                # 배포용 리버스 프록시 (HTTPS 자동, SSE 스트리밍 설정)
+.github/workflows/ci.yml # ruff+pytest(백엔드) · tsc+build(프론트)
 docs/             # TECH_SPEC / ARCHITECTURE / BACKEND / FRONTEND / TASKS / schema.sql
 이어서진행.md      # 진행 인수인계 문서 (여기부터 이어서 — 새 세션은 이거부터 읽기)
 CLAUDE.md         # 프로젝트 규약 (10대 규칙)
@@ -60,6 +69,6 @@ CLAUDE.md         # 프로젝트 규약 (10대 규칙)
 
 ## 작업 방식
 
-- 작업 단위는 [`docs/TASKS.md`](docs/TASKS.md)의 T-01~T-15 / T-F1~T-F7.
+- 작업 단위는 [`docs/TASKS.md`](docs/TASKS.md)의 T-01~T-15 / T-F1~T-F7 — **전부 완료됨**.
 - 모든 태스크 공통 완료 조건: `ruff check` 통과 · 관련 pytest 통과 · `CLAUDE.md` 규칙 준수.
-- 이어서 작업하려면 [`이어서진행.md`](이어서진행.md)의 "다음 작업" 절부터.
+- 이어서 작업하려면 [`이어서진행.md`](이어서진행.md)의 "새 세션에서 바로 시작하는 법" 절부터 — 남은 건 코딩이 아니라 실제 배포/키 발급/인터뷰다.

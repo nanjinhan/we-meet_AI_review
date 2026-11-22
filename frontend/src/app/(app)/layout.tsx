@@ -6,6 +6,7 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
+  ScanSearch,
   Scale,
   Settings,
   Sparkles,
@@ -20,6 +21,7 @@ import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 const NAV = [
   { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
   { href: "/inbox", label: "인박스", icon: Inbox },
+  { href: "/insights", label: "근거 진단", icon: ScanSearch },
   { href: "/reports", label: "리포트", icon: FileText },
   { href: "/compare", label: "비교", icon: Scale },
   { href: "/assistant", label: "AI 비서", icon: Bot },
@@ -144,7 +146,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         </main>
 
         {/* 모바일 하단 탭 */}
-        <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-6 border-t border-border bg-card/95 text-center backdrop-blur md:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-7 border-t border-border bg-card/95 text-center backdrop-blur md:hidden">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = pathname.startsWith(href);
             return (
@@ -152,7 +154,7 @@ function Shell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 py-2 text-[10px]",
+                  "flex flex-col items-center gap-0.5 whitespace-nowrap py-2 text-[10px]",
                   active ? "font-semibold text-primary" : "text-muted-foreground",
                 )}
               >

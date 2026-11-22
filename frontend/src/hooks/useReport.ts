@@ -6,8 +6,17 @@ import type { components } from "@/lib/api-types";
 
 export type Report = components["schemas"]["ReportRead"];
 
-/** 진단 1건 — diagnosis JSONB 의 실제 형태 (백엔드 프롬프트 스키마와 동일). */
-export type Diagnosis = { level: string; title: string; evidence: string };
+/**
+ * 진단 1건 — diagnosis JSONB 의 실제 형태 (백엔드 프롬프트 스키마와 동일).
+ * aspect/polarity 는 진단이 특정 항목을 가리킬 때만 있다(report_v2) — 근거 리뷰 연결에 쓴다.
+ */
+export type Diagnosis = {
+  level: string;
+  title: string;
+  evidence: string;
+  aspect?: string | null;
+  polarity?: string | null;
+};
 export type Prescription = { title: string; detail: string; expected_effect: string };
 
 export function useReport(storeId: number | undefined) {

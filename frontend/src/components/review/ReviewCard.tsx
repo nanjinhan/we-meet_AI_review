@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCircle2, Star } from "lucide-react";
+import { CheckCircle2, EyeOff, Star } from "lucide-react";
+import { HighlightedBody } from "@/components/review/HighlightedBody";
 import { SeverityBadge } from "@/components/review/SeverityBadge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,7 +25,15 @@ function Stars({ rating }: { rating: number | null }) {
   );
 }
 
+type Aspect = { category?: string; polarity?: string; quote?: string };
+
 export function ReviewCard({ review, onClick }: { review: ReviewItem; onClick: () => void }) {
+  const aspects = review.aspects as Aspect[];
+  // 항목 태그의 근거 문장(서버가 원문 대조를 마친 것)을 본문에 표시 — 태그가 어디서 나왔는지 보이게
+  const highlights = aspects
+    .filter((a) => typeof a.quote === "string" && a.quote)
+    .map((a) => ({ text: a.quote as string, polarity: a.polarity }));
+
   return (
     <Card
       role="button"
@@ -40,6 +49,15 @@ export function ReviewCard({ review, onClick }: { review: ReviewItem; onClick: (
           <span className="text-xs text-subtle-foreground">{review.written_at ?? ""}</span>
           <span className="ml-auto flex items-center gap-1.5">
             <SeverityBadge severity={review.severity} urgent={review.urgent} />
+            {review.excluded && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                title={review.exclude_reason ? `제외 이유: ${review.exclude_reason}` : undefined}
+              >
+                <EyeOff className="h-3 w-3" />
+                분석 제외
+              </span>
+            )}
             {review.answered && (
               <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
                 <CheckCircle2 className="h-3 w-3" />
@@ -49,25 +67,27 @@ export function ReviewCard({ review, onClick }: { review: ReviewItem; onClick: (
           </span>
         </div>
 
-        <p className="text-sm leading-relaxed">{review.body}</p>
+        {/* 표시 색은 아래 항목 태그와 맞춘다 (불만=빨강, 호평=바이올렛) */}
+        <HighlightedBody
+          body={review.body}
+          highlights={highlights}
+          tones={{ neg: "bg-destructive/10", pos: "bg-accent" }}
+        />
 
-        {review.aspects.length > 0 && (
+        {aspects.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {review.aspects.map((a, i) => {
-              const aspect = a as { category?: string; polarity?: string };
-              return (
-                <Badge
-                  key={i}
-                  variant="secondary"
-                  className={cn(
-                    aspect.polarity === "neg" && "bg-destructive/10 text-destructive",
-                    aspect.polarity === "pos" && "bg-accent text-accent-foreground",
-                  )}
-                >
-                  {aspect.category}
-                </Badge>
-              );
-            })}
+            {aspects.map((aspect, i) => (
+              <Badge
+                key={i}
+                variant="secondary"
+                className={cn(
+                  aspect.polarity === "neg" && "bg-destructive/10 text-destructive",
+                  aspect.polarity === "pos" && "bg-accent text-accent-foreground",
+                )}
+              >
+                {aspect.category}
+              </Badge>
+            ))}
           </div>
         )}
       </CardContent>

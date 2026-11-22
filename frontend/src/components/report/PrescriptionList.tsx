@@ -1,6 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Prescription } from "@/hooks/useReport";
@@ -39,7 +40,12 @@ export function PrescriptionList({
       <CardHeader>
         <CardTitle>이번 주 처방</CardTitle>
         <p className="text-xs text-muted-foreground">
-          {done.length}/{items.length} 완료 — 체크는 이 기기에만 저장됩니다
+          {done.length}/{items.length} 완료 — 체크는 이 기기에만 저장됩니다. 실행일을 남기고 이후
+          리뷰를 함께 보려면{" "}
+          <Link href="/insights" className="font-medium text-primary hover:underline">
+            근거 진단
+          </Link>
+          에서 실행 과제로 기록하세요.
         </p>
       </CardHeader>
       <CardContent className="space-y-2 pt-3">

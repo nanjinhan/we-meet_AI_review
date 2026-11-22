@@ -1,9 +1,15 @@
+import { ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Diagnosis } from "@/hooks/useReport";
+import { addDays, insightsHref } from "@/lib/insight-copy";
 
 /**
  * 진단 카드 — 레퍼런스(cascal "What Customers Like")의 번호 + 컬러 알약 배지 방식.
  * 아이콘/세로 바 없이, 색만으로 의미를 전달하지 않도록 배지에 레벨 이름을 적는다.
+ *
+ * 진단이 특정 항목을 가리키면(aspect/polarity) '근거 리뷰 보기'로 그 항목의 근거 화면에 연결한다.
+ * 리포트와 같은 4주(리포트 기준 주의 일요일까지)를 열어, 진단 문장을 원문으로 확인할 수 있게 한다.
  */
 const LEVELS: Record<string, { label: string; pill: string; num: string }> = {
   crit: {
@@ -28,8 +34,18 @@ const LEVELS: Record<string, { label: string; pill: string; num: string }> = {
   },
 };
 
-export function DiagnosisCard({ item, index }: { item: Diagnosis; index: number }) {
+export function DiagnosisCard({
+  item,
+  index,
+  weekStart,
+}: {
+  item: Diagnosis;
+  index: number;
+  /** 리포트 기준 주의 월요일 (YYYY-MM-DD) */
+  weekStart: string;
+}) {
   const level = LEVELS[item.level] ?? LEVELS.opportunity;
+  const linked = item.aspect && (item.polarity === "pos" || item.polarity === "neg");
 
   return (
     <Card>
@@ -51,6 +67,20 @@ export function DiagnosisCard({ item, index }: { item: Diagnosis; index: number 
           <span className="text-subtle-foreground">근거 · </span>
           {item.evidence}
         </p>
+        {linked && (
+          <Link
+            href={insightsHref({
+              aspect: item.aspect!,
+              polarity: item.polarity as "pos" | "neg",
+              range: "4w",
+              asOf: addDays(weekStart, 6),
+            })}
+            className="mt-2 ml-9 inline-flex items-center gap-0.5 text-xs font-medium text-primary hover:underline"
+          >
+            근거 리뷰 보기
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        )}
       </CardContent>
     </Card>
   );

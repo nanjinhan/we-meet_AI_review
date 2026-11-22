@@ -3,6 +3,7 @@
 import { Flame } from "lucide-react";
 import { useState } from "react";
 import { AspectBars } from "@/components/dashboard/AspectBars";
+import { IssueTeaser } from "@/components/dashboard/IssueTeaser";
 import { RatingDist } from "@/components/dashboard/RatingDist";
 import { ScoreCard } from "@/components/dashboard/ScoreCard";
 import { StatTiles } from "@/components/dashboard/StatTiles";
@@ -112,7 +113,7 @@ export default function DashboardPage() {
           <div className="grid gap-4 lg:grid-cols-3">
             <FadeIn className="lg:col-span-2">
               <div className="flex h-full flex-col gap-4">
-                <ScoreCard score={data.score} delta={data.score_delta} />
+                <ScoreCard data={data} />
                 <StatTiles data={data} />
               </div>
             </FadeIn>
@@ -124,6 +125,11 @@ export default function DashboardPage() {
               />
             </FadeIn>
           </div>
+          {store && (
+            <FadeIn delay={0.08}>
+              <IssueTeaser storeId={store.id} range={range} />
+            </FadeIn>
+          )}
           <div className="grid gap-4 lg:grid-cols-2">
             <FadeIn delay={0.1}>
               <TrendChart trend={data.trend} />

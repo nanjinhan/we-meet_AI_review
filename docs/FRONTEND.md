@@ -86,10 +86,28 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 ### 대시보드 (`/dashboard`)
 - 종합 평판 점수(큰 숫자 + 전주 대비 증감), 주별 추이 라인차트, aspect별 긍/부정 바차트,
   급증 키워드 칩. 데이터는 `GET /dashboard?range=4w` 한 번으로 받는다(프론트 집계 금지).
+- (T-F8) 점수 카드 아래 자료 충분도(`sufficiency` + 기간 + 분석 리뷰 수)와 "반복 문제 후보" 카드가 추가됐다.
+  후자만 `GET /insights`를 따로 호출한다(근거 진단 화면과 같은 쿼리 캐시를 공유) — 집계는 여전히 서버가 한다.
 
 ### 리포트 (`/reports`)
 - diagnosis를 level별 색상 카드(crit=빨강/warn=노랑/strength=초록/opportunity=파랑)로,
   각 카드에 evidence 수치 강조. prescriptions는 체크리스트 형태.
+
+### 근거 진단 (`/insights`) — T-F8, 스펙 외 추가
+- 화면 상태는 전부 URL: `?range=4w&aspect=대기시간&polarity=neg&as_of=YYYY-MM-DD`.
+  `aspect`가 있으면 근거 패널이 열린다 — 대시보드·리포트에서 이 URL로 바로 들어온다(`lib/insight-copy.insightsHref`).
+- 구성(위→아래): 분석 범위 카드(`CoverageCard` — 기간·분모·빠진 리뷰 건수·자료 충분도) →
+  반복 문제 후보 / 호평 항목(`InsightCard` — "N건 중 M건", 반복 주 수, 직전 기간, 근거 문장 미리보기) →
+  실행 과제(`ActionList` — 실행 전/후 건수) → 확인이 필요한 리뷰 + 분석 제외 내역(`ReviewChecks`).
+- 근거 패널(`EvidenceDrawer`): 요약 문장 → 사실 표(분석 범위·관련 리뷰·주별 언급·함께 나온 말·다른 경험·
+  자료 한계·직접 확인할 것) → 실행 과제 기록 폼 → 근거 리뷰 원문(근거 문장 강조 `HighlightedBody`) →
+  다르게 말한 리뷰.
+- 문구 원칙(`lib/insight-copy.ts`에 모음): 관찰까지만 말하고 원인·효과를 단정하지 않는다. 단위는 "리뷰 N건".
+  자료 충분도는 등급 이름 + 실제 건수 + 기준값으로만 표시하고 % 로 바꾸지 않는다.
+  검토 신호는 "가짜" 같은 판정 표현을 쓰지 않는다. 건수·비율은 서버가 계산한 값만 쓴다(프론트 집계 금지).
+- 다른 화면 연결: 대시보드 `ScoreCard` 하단에 자료 충분도, `IssueTeaser`(반복 문제 후보 상위 3개),
+  리포트 `DiagnosisCard`의 "근거 리뷰 보기"(리포트와 같은 4주 = `as_of`), 인박스 `ReviewCard`의
+  근거 문장 강조와 "분석 제외" 뱃지.
 
 ### 비교 (`/compare`)
 - aspect별 우리 vs 경쟁 수평 바 비교 + 한 줄 인사이트.

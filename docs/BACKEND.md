@@ -134,6 +134,7 @@ async def generate_stream(prompt_name, variables, model=None):
 - 프롬프트 파일: `classify_v1.md`, `reply_v1.md`, `report_v1.md`,
   `assistant_router_v1.md`, `assistant_answer_v1.md`. 가드레일(보상 약속 금지,
   집계값만 인용 등)은 프롬프트 파일 안에 명시한다.
+- 현재 쓰는 버전: 분류 `classify_v2.md`, 리포트 `report_v2.md`(§10-1). v1 파일은 이력으로 남겨 둔다.
 
 ## 5. collectors/ — 수집기
 
@@ -238,6 +239,33 @@ async def compare_period(db, store_id, aspect, weeks) -> dict        # 전기간
 async def search_evidence(db, store_id, query_text, sentiment, weeks, k=5) -> list[Review]
     # BGE-M3로 query_text 임베딩 → pgvector cosine 검색 + written_at/sentiment 필터
 ```
+
+## 10-1. 근거 진단 (T-16, 스펙 외 추가) — services/insights.py 외
+
+분석 결과마다 "어떤 리뷰를 근거로, 몇 건 중 몇 건, 자료가 충분한지"를 함께 내려준다.
+설계 원칙·일부러 만들지 않은 것은 `이어서진행.md` 결정 19~21.
+
+| 파일 | 내용 |
+|---|---|
+| `prompts/classify_v2.md` + `llm/schemas.AspectItem.quote` | 항목마다 근거 문장(원문 그대로 발췌). `pipeline/analyze._clean_aspects`가 저장 전 원문 대조 — 통과한 것만 `aspects[].quote`로 저장, 같은 (항목, 방향)은 리뷰당 한 번 |
+| `services/review_text.py` | 순수 함수: `verify_quote`(원문 대조), `normalize_text`·`long_units`(같은 문장 비교용) |
+| `services/sufficiency.py` | 자료 충분도 등급(low/fair/good)과 기준 상수. 통계적 신뢰도가 아니라 자료량 안내 — % 수치를 만들지 않는다 |
+| `services/insights.py` | `build_insights`(항목별 요약 + 분석 범위·누락 + 검토 신호), `build_evidence`(근거 리뷰 원문·반대 의견·주별 반복). **사전집계를 읽지 않고 리뷰 행을 직접 센다** → 요약 건수 = 근거 목록 길이. 기간 창은 대시보드와 같은 주 단위 |
+| `services/actions.py` | 실행 과제 + 실행일 전후 관측(같은 행·같은 규칙으로 매번 다시 센다). 효과 판정은 계산하지 않는다 |
+| `prompts/report_v2.md` + `llm/schemas.Diagnosis.aspect/polarity` | 진단 → 근거 연결. `report_gen._clean_links`가 집계에 있는 항목명만 남긴다 |
+
+엔드포인트(전부 소유권 검사):
+
+| 파일 | 엔드포인트 | 비고 |
+|---|---|---|
+| insights.py | `GET /stores/{id}/insights?range=4w[&as_of=YYYY-MM-DD]` | `as_of`는 그 날짜가 속한 주까지(리포트 기준 주의 근거를 볼 때) |
+| insights.py | `GET /stores/{id}/insights/evidence?aspect=&polarity=neg&range=4w[&as_of=]` | 언급이 없는 항목도 200(0건) |
+| actions.py | `GET`·`POST /stores/{id}/actions`, `PATCH`·`DELETE /actions/{action_id}` | `deps.get_owned_action` |
+| reviews.py | `PUT /reviews/{id}/exclusion` `{excluded, reason}` | 제외 시 이유 필수. 경쟁매장 리뷰 400. 즉시 해당 주 `upsert_week_stats` |
+| reviews.py | `GET /stores/{id}/reviews?excluded=true` | 분석 제외 내역 |
+
+주의: 리뷰를 직접 세는 조회를 새로 만들면 `Review.excluded_at.is_(None)` 필터를 넣을 것
+(현재: stats, dashboard 3곳, assistant search_evidence, insights). 시스템이 리뷰를 자동으로 제외하는 코드는 만들지 않는다.
 
 ## 11. 테스트 방침
 

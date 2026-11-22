@@ -22,6 +22,7 @@ from app.models import (
 from app.pipeline.stats import OVERALL, week_start_of
 from app.schemas.dashboard import AspectBar, DashboardOut, RatingBucket, WeeklyPoint
 from app.services.score import composite_score
+from app.services.sufficiency import sufficiency_level
 
 
 def parse_range_weeks(range_: str) -> int:
@@ -69,6 +70,7 @@ async def _answer_rate(db, store_id, weeks) -> tuple[float, int]:
             StoreChannel.is_competitor.is_(False),
             Review.written_at >= start,
             Review.written_at < end,
+            Review.excluded_at.is_(None),  # 분석 제외 리뷰는 답변율 분모에서도 뺀다
         )
     )
     total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
@@ -159,6 +161,7 @@ async def _keywords(db, store_id, weeks, *, top: int = 8) -> list[str]:
             ReviewAnalysis.sentiment == "neg",
             Review.written_at >= start,
             Review.written_at < end,
+            Review.excluded_at.is_(None),
         )
     )
     counter: Counter = Counter()
@@ -181,6 +184,7 @@ async def _rating_dist(db, store_id, weeks) -> list[RatingBucket]:
             Review.written_at >= start,
             Review.written_at < end,
             Review.rating.is_not(None),
+            Review.excluded_at.is_(None),
         )
         .group_by(Review.rating)
     )
@@ -209,6 +213,9 @@ async def build_dashboard(
 
     return DashboardOut(
         range_weeks=range_weeks,
+        period_start=min(weeks),
+        period_end=min(max(weeks) + timedelta(days=6), today),
+        sufficiency=sufficiency_level(cur.total),
         score=cur.score,
         score_delta=delta,
         total_reviews=cur.total,

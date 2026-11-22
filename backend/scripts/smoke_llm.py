@@ -22,7 +22,7 @@ SAMPLES = [
 async def main() -> None:
     reviews = "\n".join(f"{i}. {body}" for i, body in enumerate(SAMPLES))
     result = await generate(
-        "classify_v1",
+        "classify_v2",
         {"reviews": reviews},
         BatchAnalysisOut,
         model=settings.llm_model_classify,

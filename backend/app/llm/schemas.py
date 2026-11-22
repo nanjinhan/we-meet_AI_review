@@ -12,6 +12,9 @@ from pydantic import BaseModel
 class AspectItem(BaseModel):
     category: Literal["맛", "친절", "청결", "대기시간", "가격", "분위기", "기타"]
     polarity: Literal["pos", "neg"]
+    # 그렇게 판단한 근거 문장 — 리뷰 본문을 글자 그대로 발췌(classify_v2).
+    # 서버가 원문과 대조해 통과한 것만 저장한다(pipeline/analyze.py). 없으면 null.
+    quote: str | None = None
 
 
 class ReviewAnalysisOut(BaseModel):
@@ -43,6 +46,10 @@ class Diagnosis(BaseModel):
     level: Literal["crit", "warn", "strength", "opportunity"]
     title: str
     evidence: str  # 반드시 프롬프트에 준 수치만 인용
+    # 이 진단이 가리키는 항목과 방향(report_v2). 리포트 카드 → 근거 리뷰 연결용.
+    # 서버가 집계에 실제로 있는 항목명인지 검증하고, 아니면 둘 다 null 로 지운다.
+    aspect: str | None = None
+    polarity: Literal["pos", "neg"] | None = None
 
 
 class Prescription(BaseModel):

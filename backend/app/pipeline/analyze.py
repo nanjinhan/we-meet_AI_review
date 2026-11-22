@@ -3,6 +3,9 @@
 신규 리뷰를 배치로 LLM 분류 → review_analysis 저장 → 주간 집계 UPSERT →
 (경쟁매장이 아니면) urgent/저평점 알림 → 임베딩. 실패 배치는 model_ver='failed' 로
 마킹하고 계속(전체 중단 금지).
+
+근거 문장(quote): classify_v2 는 항목마다 '그렇게 판단한 문장'을 함께 낸다. 저장 전에 리뷰 원문과
+대조해(_clean_aspects) 원문에 없는 인용은 버린다 — 화면에 나가는 근거는 전부 원문에 실재한다.
 (BACKEND.md §6, ARCHITECTURE.md §4, TECH_SPEC §5.1)
 """
 
@@ -14,9 +17,10 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.llm.schemas import BatchAnalysisOut
+from app.llm.schemas import AspectItem, BatchAnalysisOut
 from app.models import Review, ReviewAnalysis, StoreChannel
 from app.pipeline import embed, stats
+from app.services.review_text import verify_quote
 
 logger = logging.getLogger("pipeline.analyze")
 
@@ -37,6 +41,30 @@ async def _default_generate(prompt_name: str, variables: dict, output_model: typ
 
 def _format_batch(reviews: list[Review]) -> str:
     return "\n".join(f"{i}. {r.body}" for i, r in enumerate(reviews))
+
+
+def _clean_aspects(body: str, aspects: list[AspectItem]) -> list[dict]:
+    """LLM 항목 목록을 저장 형태로 정리.
+
+    - 같은 (항목, 방향)은 리뷰당 한 번만 남긴다 → 집계 건수가 '언급 횟수'가 아니라 '리뷰 수'가 된다.
+    - quote 는 원문 대조를 통과한 것만(원문 그대로의 조각으로) 저장한다. 통과 못 한 인용은 버리되
+      항목 자체는 유지한다 — 분류는 맞고 인용만 의역했을 수 있기 때문.
+    """
+    cleaned: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    for aspect in aspects:
+        key = (aspect.category, aspect.polarity)
+        if key in seen:
+            continue
+        seen.add(key)
+        item = {"category": aspect.category, "polarity": aspect.polarity}
+        quote = verify_quote(body, aspect.quote)
+        if quote:
+            item["quote"] = quote
+        elif aspect.quote:
+            logger.debug("원문에 없는 근거 문장 버림: %r", aspect.quote[:60])
+        cleaned.append(item)
+    return cleaned
 
 
 async def _insert_analysis(db: AsyncSession, review_id: int, values: dict) -> None:
@@ -84,7 +112,7 @@ async def analyze_new_reviews(
         batch = pending[start : start + batch_size]
         try:
             result = await generate_fn(
-                "classify_v1", {"reviews": _format_batch(batch)}, BatchAnalysisOut
+                "classify_v2", {"reviews": _format_batch(batch)}, BatchAnalysisOut
             )
         except Exception as exc:  # noqa: BLE001 - 실패 배치는 마킹 후 계속
             logger.warning("분석 배치 실패(channel=%s): %s", channel_id, exc)
@@ -107,7 +135,7 @@ async def analyze_new_reviews(
                     "sentiment": item.sentiment,
                     "severity": item.severity,
                     "urgent": item.urgent,
-                    "aspects": [a.model_dump() for a in item.aspects],
+                    "aspects": _clean_aspects(review.body, item.aspects),
                     "keywords": item.keywords,
                     "model_ver": settings.llm_model_classify,
                 },

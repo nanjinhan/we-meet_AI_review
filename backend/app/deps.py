@@ -2,7 +2,8 @@
 
 - Supabase JWT 검증은 여기 한 곳에서만 한다(미들웨어 아님). 프로젝트가 비대칭 키(ES256)로
   바뀌면 이 파일의 get_current_user 만 JWKS 검증으로 교체한다.
-- 모든 데이터 라우터는 get_owned_store / get_owned_review / get_owned_reply 중 하나를 통과해야 한다.
+- 모든 데이터 라우터는 get_owned_store / get_owned_review / get_owned_reply / get_owned_action
+  중 하나를 통과해야 한다.
   존재 은닉을 위해 소유하지 않은 리소스는 401 이 아니라 404 로 응답한다.
 (CLAUDE.md 규칙 8, ARCHITECTURE.md §3-3, BACKEND.md §3)
 """
@@ -17,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db import get_db
-from app.models import Reply, Review, Store, StoreChannel
+from app.models import ActionItem, Reply, Review, Store, StoreChannel
 
 
 def _credentials_error() -> HTTPException:
@@ -104,6 +105,23 @@ async def get_owned_reply(
     if reply is None:
         raise _not_found()
     return reply
+
+
+async def get_owned_action(
+    action_id: int,
+    user: UUID = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ActionItem:
+    """action_item → store 조인으로 소유 매장의 실행 과제인지 검사. 아니면 404."""
+    stmt = (
+        select(ActionItem)
+        .join(Store, ActionItem.store_id == Store.id)
+        .where(ActionItem.id == action_id, Store.owner_id == user)
+    )
+    action = (await db.execute(stmt)).scalar_one_or_none()
+    if action is None:
+        raise _not_found()
+    return action
 
 
 async def require_internal_key(x_internal_key: str | None = Header(default=None)) -> None:

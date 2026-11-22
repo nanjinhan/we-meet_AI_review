@@ -95,6 +95,9 @@ class Review(Base):
     collected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()")
     )
+    # 점주가 '분석에서 제외'한 리뷰 (migration 004). null = 포함. 자동 제외는 하지 않는다.
+    excluded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    exclude_reason: Mapped[str | None] = mapped_column(Text)
 
 
 class ReviewAnalysis(Base):
@@ -169,6 +172,28 @@ class Report(Base):
     week_start: Mapped[date] = mapped_column(Date, nullable=False)
     diagnosis: Mapped[list] = mapped_column(JSONB, nullable=False)
     prescriptions: Mapped[list] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()")
+    )
+
+
+class ActionItem(Base):
+    """실행 과제 (migration 004) — 근거를 본 뒤 점주가 고른 행동과 실행일."""
+
+    __tablename__ = "action_items"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    store_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("stores.id", ondelete="CASCADE"), nullable=False
+    )
+    aspect: Mapped[str] = mapped_column(Text, nullable=False)  # 맛/친절/.../기타
+    polarity: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'neg'"))
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)
+    started_on: Mapped[date] = mapped_column(Date, nullable=False)  # 실행일 = 관측 기준점
+    status: Mapped[str] = mapped_column(  # active/done/dropped
+        Text, nullable=False, server_default=text("'active'")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()")
     )

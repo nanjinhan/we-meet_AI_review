@@ -116,6 +116,7 @@ async def search_evidence(
             StoreChannel.is_competitor.is_(False),
             Review.written_at >= start,
             Review.written_at < end,
+            Review.excluded_at.is_(None),  # 점주가 분석에서 제외한 리뷰는 근거로 쓰지 않는다
         )
     )
     if sentiment:

@@ -1,20 +1,23 @@
-"""리뷰 라우터 — T-04 범위는 CSV 임포트만. 인박스 GET 은 T-11 에서 추가.
+"""리뷰 라우터 — 인박스(GET) · CSV 임포트 · 분석 제외.
 
 (BACKEND.md §9 reviews.py)
 """
 
 import logging
+from datetime import UTC, datetime
 from typing import Literal
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
+from fastapi import status as http_status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.collectors.csv_import import parse_csv
 from app.db import SessionLocal, get_db
-from app.deps import get_owned_store
+from app.deps import get_owned_review, get_owned_store
 from app.models import Reply, Review, ReviewAnalysis, Store, StoreChannel
-from app.schemas.reviews import ReviewItem, ReviewsPage
+from app.pipeline.stats import upsert_week_stats, week_start_of
+from app.schemas.reviews import ExclusionIn, ExclusionOut, ReviewItem, ReviewsPage
 from app.schemas.stores import ImportResult
 from app.services.ingest import store_raw_reviews
 
@@ -43,11 +46,16 @@ async def list_reviews(
     sentiment: Literal["pos", "neu", "neg"] | None = None,
     urgent: bool | None = None,
     answered: bool | None = None,
+    excluded: bool | None = None,
     cursor: int | None = None,
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> ReviewsPage:
-    """리뷰 인박스. 필터(sentiment/urgent/answered) + 커서 페이지네이션(id desc)."""
+    """리뷰 인박스. 필터(sentiment/urgent/answered/excluded) + 커서 페이지네이션(id desc).
+
+    excluded=true 는 '분석 제외 내역'(근거 진단 화면) 조회에 쓴다. 필터를 주지 않으면 제외된
+    리뷰도 목록에 그대로 나온다 — 분석에서만 빠질 뿐 리뷰 자체는 숨기지 않는다.
+    """
     approved_exists = (
         select(Reply.id)
         .where(Reply.review_id == Review.id, Reply.status == "approved")
@@ -65,6 +73,8 @@ async def list_reviews(
         q = q.where(ReviewAnalysis.urgent.is_(urgent))
     if answered is not None:
         q = q.where(approved_exists if answered else ~approved_exists)
+    if excluded is not None:
+        q = q.where(Review.excluded_at.is_not(None) if excluded else Review.excluded_at.is_(None))
     if cursor is not None:
         q = q.where(Review.id < cursor)  # id desc 커서
     q = q.order_by(Review.id.desc()).limit(limit + 1)
@@ -88,11 +98,51 @@ async def list_reviews(
             keywords=list(an.keywords) if an and an.keywords else [],
             answered=(rev.id in replies and replies[rev.id].status == "approved"),
             reply_draft=replies[rev.id].draft if rev.id in replies else None,
+            excluded=rev.excluded_at is not None,
+            exclude_reason=rev.exclude_reason,
         )
         for rev, an in rows
     ]
     next_cursor = rows[-1][0].id if has_more else None
     return ReviewsPage(items=items, next_cursor=next_cursor)
+
+
+@router.put("/reviews/{review_id}/exclusion", response_model=ExclusionOut)
+async def set_review_exclusion(
+    payload: ExclusionIn,
+    review: Review = Depends(get_owned_review),
+    db: AsyncSession = Depends(get_db),
+) -> ExclusionOut:
+    """리뷰를 분석에서 제외하거나 다시 포함한다(이유 기록). 리뷰 자체는 지우지 않는다.
+
+    시스템이 자동으로 제외하는 경로는 없다 — 중복 수집 등 검토 신호를 본 점주가 결정한다.
+    제외/복원 즉시 해당 주의 weekly_aspect_stats 를 다시 집계해 대시보드·리포트와 맞춘다.
+    """
+    channel = await db.get(StoreChannel, review.channel_id)
+    if channel is None or channel.is_competitor:
+        # 경쟁매장 리뷰는 비교 통계의 원천 — 내 손으로 빼면 비교가 왜곡된다.
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="경쟁매장 리뷰는 분석에서 제외할 수 없습니다.",
+        )
+
+    if payload.excluded:
+        review.excluded_at = datetime.now(UTC)
+        review.exclude_reason = payload.reason
+    else:
+        review.excluded_at = None
+        review.exclude_reason = None
+    await db.flush()
+
+    if review.written_at is not None:  # 작성일 없는 리뷰는 애초에 주간 집계에 없다
+        await upsert_week_stats(db, channel.store_id, week_start_of(review.written_at))
+    await db.commit()
+    return ExclusionOut(
+        review_id=review.id,
+        excluded=review.excluded_at is not None,
+        exclude_reason=review.exclude_reason,
+        excluded_at=review.excluded_at,
+    )
 
 
 async def _analyze_channel_bg(channel_id: int) -> None:

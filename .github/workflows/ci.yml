@@ -42,7 +42,7 @@ jobs:
         run: pip install -e ".[dev]"
 
       # 빈 DB에 마이그레이션 적용 — 000은 로컬/CI 전용 auth 스텁(Supabase엔 적용 안 함, 파일 안 주석 참고).
-      # docker-compose.dev.yml의 initdb 훅과 동일하게 파일명 순서(000→001→002→003)대로 적용.
+      # docker-compose.dev.yml의 initdb 훅과 동일하게 파일명 순서(000→001→…→004)대로 적용.
       - name: Apply migrations
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client

@@ -4,6 +4,8 @@ from datetime import date
 
 from pydantic import BaseModel
 
+from app.services.sufficiency import SufficiencyLevel
+
 
 class WeeklyPoint(BaseModel):
     week_start: date
@@ -28,6 +30,11 @@ class RatingBucket(BaseModel):
 
 class DashboardOut(BaseModel):
     range_weeks: int
+    period_start: date  # 분석 기간 첫날
+    period_end: date  # 분석 기간 마지막 날(포함, 오늘을 넘지 않음)
+    # 자료 충분도 — 점수와 별개로 '이 점수를 뒷받침하는 분석 리뷰가 얼마나 있는가'.
+    # 통계적 신뢰도가 아니라 자료량 안내다(services/sufficiency.py). 기준은 total_reviews.
+    sufficiency: SufficiencyLevel
     score: float
     score_delta: float | None  # 직전 동일기간 대비
     total_reviews: int

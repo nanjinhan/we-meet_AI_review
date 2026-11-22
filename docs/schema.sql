@@ -48,6 +48,8 @@ create table reviews (
   body          text not null,
   written_at    date,
   collected_at  timestamptz default now(),
+  excluded_at   timestamptz,                   -- 점주가 '분석에서 제외'한 시각(null=포함). 자동 제외 없음 (migration 004)
+  exclude_reason text,                         -- 제외 이유(중복 수집 등) — 제외 내역에 그대로 표시 (migration 004)
   unique (channel_id, dedup_key)
 );
 create index idx_reviews_channel_written on reviews(channel_id, written_at desc);
@@ -57,7 +59,9 @@ create table review_analysis (
   sentiment     text check (sentiment in ('pos','neu','neg')),
   severity      text check (severity in ('normal','uncomfortable','complaint','malicious')),
   urgent        boolean default false,
-  aspects       jsonb not null default '[]',   -- [{"category":"대기시간","polarity":"neg"}]
+  -- [{"category":"대기시간","polarity":"neg","quote":"웨이팅이 1시간 넘게 걸렸어요"}]
+  -- quote(선택) = 그렇게 판단한 근거 문장. 서버가 원문 대조를 통과한 것만 저장한다(classify_v2).
+  aspects       jsonb not null default '[]',
   keywords      text[] default '{}',
   model_ver     text,                          -- 'haiku-v1' | 'koelectra-v1' | 'failed'
   alerted_at    timestamptz,                   -- 알림 발송 시각(미발송=null). digest 중복 방지 (migration 003)
@@ -100,11 +104,26 @@ create table reports (
   id            bigint generated always as identity primary key,
   store_id      bigint not null references stores(id) on delete cascade,
   week_start    date not null,
-  diagnosis     jsonb not null,                -- [{level,title,evidence,metric}]
+  diagnosis     jsonb not null,                -- [{level,title,evidence,aspect?,polarity?}] aspect=근거 리뷰 연결용
   prescriptions jsonb not null,                -- [{title,detail,expected_effect}]
   created_at    timestamptz default now(),
   unique (store_id, week_start)
 );
+
+-- 실행 과제 (migration 004) — 근거를 보고 점주가 고른 행동. started_on 이 이후 리뷰 관측의 기준점.
+-- 실행 전/후 건수는 저장하지 않고 조회 시 리뷰에서 다시 센다(services/actions.py).
+create table action_items (
+  id            bigint generated always as identity primary key,
+  store_id      bigint not null references stores(id) on delete cascade,
+  aspect        text not null,                 -- 대상 항목 (맛/친절/청결/대기시간/가격/분위기/기타)
+  polarity      text not null default 'neg' check (polarity in ('pos','neg')),
+  title         text not null,                 -- 실행할 행동 (점주 입력)
+  note          text,
+  started_on    date not null,                 -- 실행일
+  status        text not null default 'active' check (status in ('active','done','dropped')),
+  created_at    timestamptz default now()
+);
+create index idx_action_items_store on action_items(store_id, started_on desc);
 
 -- ---------- 알림·대화 ----------
 create table alerts (
@@ -176,6 +195,7 @@ alter table review_embeddings    enable row level security;
 alter table replies              enable row level security;
 alter table weekly_aspect_stats  enable row level security;
 alter table reports              enable row level security;
+alter table action_items         enable row level security;
 alter table alerts               enable row level security;
 alter table chat_messages        enable row level security;
 alter table crawl_jobs           enable row level security;

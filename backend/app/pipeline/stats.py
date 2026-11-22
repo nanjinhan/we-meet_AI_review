@@ -12,7 +12,7 @@
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,6 +52,9 @@ def compute_week_stats(reviews: list[AnalyzedReview]) -> list[StatRow]:
     - 전체: 리뷰 sentiment 기준. total=리뷰 수, avg_rating=전체 평점 평균.
     - aspect별: 언급된 aspect 항목의 polarity 기준. total=pos+neg,
       avg_rating=해당 aspect 를 언급한 리뷰들의 평점 평균. (언급 없는 aspect 는 행 없음)
+      한 리뷰가 같은 (항목, 방향)을 여러 번 담고 있어도 한 번만 센다 → pos/neg 건수는
+      '그렇게 언급한 리뷰 수'다. 근거 진단(services/insights)의 "N건 중 M건"과 같은 단위라
+      같은 기간이면 두 화면의 숫자가 일치한다.
     """
     rows: list[StatRow] = [
         StatRow(
@@ -72,8 +75,7 @@ def compute_week_stats(reviews: list[AnalyzedReview]) -> list[StatRow]:
         for cat in mentioned:
             if r.rating is not None:
                 ratings_by_aspect.setdefault(cat, []).append(r.rating)
-        for a in r.aspects:
-            cat, pol = a["category"], a["polarity"]
+        for cat, pol in {(a["category"], a["polarity"]) for a in r.aspects}:
             if pol == "pos":
                 pos[cat] = pos.get(cat, 0) + 1
             elif pol == "neg":
@@ -96,7 +98,7 @@ def compute_week_stats(reviews: list[AnalyzedReview]) -> list[StatRow]:
 async def _fetch_week_reviews(
     db: AsyncSession, store_id: int, week_start: date
 ) -> list[AnalyzedReview]:
-    """해당 매장의 해당 주(written_at 기준) 분석 완료 리뷰."""
+    """해당 매장의 해당 주(written_at 기준) 분석 완료 리뷰. 점주가 제외한 리뷰는 빠진다."""
     week_end = week_start + timedelta(days=7)
     stmt = (
         select(Review.rating, ReviewAnalysis.sentiment, ReviewAnalysis.aspects)
@@ -107,6 +109,7 @@ async def _fetch_week_reviews(
             Review.written_at >= week_start,
             Review.written_at < week_end,
             ReviewAnalysis.model_ver != "failed",  # 실패 배치 제외
+            Review.excluded_at.is_(None),  # 분석 제외(migration 004)
         )
     )
     rows = (await db.execute(stmt)).all()
@@ -143,4 +146,14 @@ async def upsert_week_stats(db: AsyncSession, store_id: int, week_start: date) -
             )
         )
         await db.execute(stmt)
+
+    # 재집계 결과에 더 이상 없는 항목 행은 지운다. 리뷰가 분석에서 제외되면 그 주에서 어떤 항목의
+    # 언급이 0건이 될 수 있는데, UPSERT 만으로는 예전 행이 남아 대시보드에 유령 건수가 보인다.
+    await db.execute(
+        delete(WeeklyAspectStats).where(
+            WeeklyAspectStats.store_id == store_id,
+            WeeklyAspectStats.week_start == week_start,
+            WeeklyAspectStats.aspect.not_in([row.aspect for row in rows]),
+        )
+    )
     return len(rows)

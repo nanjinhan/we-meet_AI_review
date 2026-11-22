@@ -43,12 +43,16 @@ jobs:
 
       # 빈 DB에 마이그레이션 적용 — 000은 로컬/CI 전용 auth 스텁(Supabase엔 적용 안 함, 파일 안 주석 참고).
       # docker-compose.dev.yml의 initdb 훅과 동일하게 파일명 순서(000→001→…→004)대로 적용.
+      # DATABASE_URL 은 SQLAlchemy 표기(postgresql+asyncpg://)라 psql 이 URL 로 인식하지 못한다
+      # (DB 이름으로 해석해 로컬 소켓 접속을 시도하다 실패 — 이 단계가 계속 빨갛던 원인).
+      # psql 에는 드라이버 표기를 뺀 표준 스킴으로 넘긴다. (worker.backup_database 의 pg_dump 와 같은 처리)
       - name: Apply migrations
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          PSQL_URL="${DATABASE_URL/+asyncpg/}"
           for f in $(ls backend/migrations/*.sql | sort); do
             echo "applying $f"
-            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+            psql "$PSQL_URL" -v ON_ERROR_STOP=1 -f "$f"
           done
 
       - name: ruff check

@@ -40,6 +40,7 @@ from app.models import (
 from app.pipeline.stats import upsert_week_stats, week_start_of
 from app.services.insights import SIMILAR_MIN_LEN
 from app.services.review_text import long_units
+from app.services.sufficiency import ISSUE_MIN_RELATED, OBSERVATION_MIN_ANALYZED
 
 DEV_USER_ID = UUID("00000000-0000-4000-8000-000000000001")
 WEEKS = 16  # 오늘 포함 과거 16주에 리뷰 분산 (4w/8w 대시보드 delta 까지 유효)
@@ -501,22 +502,30 @@ async def _seed_store_reviews(
 
 
 def _action_start(rows: list[dict], aspect: str, today: date) -> date:
-    """실행 과제의 실행일: 실행 전 4주에 그 항목 불만이 3건 이상 보이는 날.
+    """실행 과제의 실행일을 데이터에 맞춰 고른다.
 
-    10일 전~3일 전 중 가장 이른 날을 고른다.
-    시드를 실행하는 요일에 따라 리뷰 날짜가 달라져도 '불만이 반복돼서 과제를 골랐다'는 흐름이
-    유지되게 한다. 실행 후 건수는 손대지 않는다 — 관측 결과는 있는 그대로 보여준다.
+    '불만이 반복돼서 과제를 골랐고, 그 뒤 리뷰를 지켜보는 중'이라는 흐름이 보이도록
+    실행 전 4주에 그 항목 불만이 '반복' 기준 이상이면서 실행 후 리뷰도 관측 기준 이상 쌓인
+    가장 최근 날짜를 고른다(3일 전부터 4주 전까지 훑는다). 맞는 날이 없으면 실행 전 불만이
+    가장 많은 날. 시드를 실행하는 요일에 따라 리뷰 날짜가 달라져도 흐름이 유지된다.
+    실행 후 건수는 손대지 않는다 — 관측 결과는 있는 그대로 보여준다.
     """
+    all_dates = [r["review"].written_at for r in rows]
     dates = [
         r["review"].written_at
         for r in rows
         if any(a["category"] == aspect and a["polarity"] == "neg" for a in r["draft"]["aspects"])
     ]
-    for days_ago in range(10, 2, -1):
+    best, best_before = today - timedelta(days=10), -1
+    for days_ago in range(3, 29):
         start = today - timedelta(days=days_ago)
-        if sum(1 for d in dates if start - timedelta(days=28) <= d < start) >= 3:
+        before = sum(1 for d in dates if start - timedelta(days=28) <= d < start)
+        after = sum(1 for d in all_dates if d >= start)
+        if before >= ISSUE_MIN_RELATED and after >= OBSERVATION_MIN_ANALYZED:
             return start
-    return today - timedelta(days=10)
+        if before > best_before:
+            best, best_before = start, before
+    return best
 
 
 SAME_SENTENCE = "사장님이 정말 친절하시고 음식도 맛있어서 다음에 또 방문할게요"
@@ -549,7 +558,11 @@ async def _seed_showcase(db, store: Store, naver_channel: StoreChannel, rows: li
     csv_channel = StoreChannel(store_id=store.id, platform="csv")
     db.add(csv_channel)
     await db.flush()
-    recent = [r for r in rows if r["review"].written_at >= today - timedelta(days=10)]
+    #    최근 10일 안에서 가장 오래된 것을 고른다 — 근거 목록 맨 위가 같은 글 두 줄로 시작하지 않게.
+    recent = sorted(
+        (r for r in rows if r["review"].written_at >= today - timedelta(days=10)),
+        key=lambda r: (r["review"].written_at, r["review"].id),
+    )
     picks = [r for r in recent if r["sentiment"] == "neg"][:1]
     picks += [r for r in recent if r["sentiment"] == "pos"][:1]
     for src in picks:
